@@ -6,12 +6,13 @@ Provides convenience functions that wire together common RL components.
 import numpy as np
 import torch
 from typing import Callable
+from torch import nn
 from torch import Tensor
 from zerorl.functions import vectorize_env 
 from zerorl.helpers.agent import BaseAgent, eval_action
 from zerorl.helpers.env import BaseEnv
 from zerorl.buffer import Buffer 
-from torch import nn
+from zerorl.helpers.encoder import ObservationEncoder
 
 
 def get_env(env_id: str | Callable | BaseEnv, num_envs: int = 1, render_mode: str | None= None):
@@ -125,9 +126,13 @@ class ActorCriticAgent(BaseAgent):
         self.input_dim = input_dim
         self.output_dim = output_dim
 
+        # CNN Encoder
+        self.encoder = ObservationEncoder(self.input_dim)
+        self.encoder_dim = self.encoder.output_dim
+
         # Feature Extractor
         self.extract_layer = nn.Sequential(
-                nn.Linear(self.input_dim, self.hidden_dim),
+                nn.Linear(self.encoder_dim, self.hidden_dim),
                 nn.Tanh(),
                 nn.Linear(self.hidden_dim, self.hidden_dim),
                 nn.Tanh())
@@ -159,7 +164,8 @@ class ActorCriticAgent(BaseAgent):
 
     def forward(self, state: Tensor):
         """Forward pass returning (logits, value)."""
-        x = self.extract_layer(state)
+        x = self.encoder(state)
+        x = self.extract_layer(x)
         logits = self.actor(x)
         value = self.critic(x)
         return (logits, value)
@@ -200,10 +206,14 @@ class PolicyAgent(BaseAgent):
         self.hidden_dim = hidden_dim
         self.input_dim = input_dim
         self.output_dim = output_dim
+
+        # CNN Encoder
+        self.encoder = ObservationEncoder(self.input_dim)
+        self.encoder_dim = self.encoder.output_dim
         
         # Feature Extractor
         self.extract_layer = nn.Sequential(
-                nn.Linear(self.input_dim, self.hidden_dim),
+                nn.Linear(self.encoder_dim, self.hidden_dim),
                 nn.Tanh(),
                 nn.Linear(self.hidden_dim, self.hidden_dim),
                 nn.Tanh()
@@ -232,7 +242,8 @@ class PolicyAgent(BaseAgent):
 
     def forward(self, state: Tensor):
         """Forward pass returning logits."""
-        x = self.extract_layer(state)
+        x = self.encoder(state)
+        x = self.extract_layer(x)
         logits = self.actor(x)
         return logits
 

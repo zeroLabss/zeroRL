@@ -20,7 +20,6 @@ class ObservationEncoder(nn.Module):
     def __init__(
         self,
         obs_shape: tuple[int, ...] | int,
-        hidden_dim: int = 64,
         *,
         image_layout: Literal["auto", "CHW", "HWC"] = "auto",
         image_scale: float | None = 255.0):
@@ -34,7 +33,6 @@ class ObservationEncoder(nn.Module):
         self.is_image = len(self.obs_shape) == 3
         self.image_scale = image_scale
         self.image_layout: str | None = None
-        self.output_dim = hidden_dim
 
         if self.is_image:
             if image_layout == "auto":
@@ -73,30 +71,13 @@ class ObservationEncoder(nn.Module):
         else:
             self.features = nn.Flatten(start_dim=1) #type: ignore
             self.n_features = math.prod(self.obs_shape)
+        self.output_dim = self.n_features
 
-    def get_features(self): return (self.features, self.n_features)
-
-
-
-def make_encoder(
-    obs_shape: tuple[int, ...] | int,
-    hidden_dim: int,
-    encoder: nn.Module | None,
-    encoder_output_dim: int | None,
-    image_layout: Literal["auto", "CHW", "HWC"],
-    image_scale: float | None,
-) -> tuple[nn.Module, int]:
-    if encoder is None:
-        obs_encoder = ObservationEncoder(
-            obs_shape,
-            hidden_dim,
-            image_layout=image_layout,
-            image_scale=image_scale,
-        )
-        return obs_encoder.get_features()
-    dim = encoder_output_dim
-    if dim is None:
-        dim = getattr(encoder, "output_dim", None)
-    if not isinstance(dim, int) or dim <= 0:
-        raise ValueError("Custom encoder requires encoder_output_dim > 0")
-    return encoder, dim
+    def forward(self, state: torch.Tensor):
+        x = state.float()
+        if self.is_image:
+            if self.image_layout == "HWC":
+                x = x.permute(0, 3, 1, 2).contiguous()
+            if self.image_scale is not None:
+                x = x / self.image_scale
+        return self.features(x)

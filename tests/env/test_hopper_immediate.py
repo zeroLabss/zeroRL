@@ -1,5 +1,14 @@
 """Tests for Hopper2D (MujocoEnv) and its immediate-mode training loop."""
 
+
+import pytest as _pytest
+
+try:  # headless CI hosts may lack EGL: mujoco's import chain then dies in
+    # PyOpenGL with AttributeError, which would abort pytest COLLECTION
+    import mujoco  # noqa: F401
+except Exception:  # pragma: no cover - host-dependent
+    _pytest.skip("mujoco (or its OpenGL/EGL stack) unavailable on this host",
+                 allow_module_level=True)
 import numpy as np
 import pytest
 import torch

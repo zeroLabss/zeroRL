@@ -62,11 +62,16 @@ from typing import Any, Callable, Literal
 
 import psutil
 
-from benchmarks.scalability.results_schema import append_row, make_row
+from benchmarks.scalability.results_schema import (  # noqa: E402
+    append_row,
+    env_slug,
+    make_row,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FRAMEWORKS_R = ("zeroRL", "SB3", "TorchRL")
 WORKLOADS = ("collect", "ppo")
+DEFAULT_ENV = "LunarLander-v3"
 DEFAULT_INTERVAL_S = 0.2
 COLLECT_NUM_ENVS = 8
 PPO_EXPERIMENT = "D"
@@ -646,9 +651,12 @@ def run_resource_workload(
     if write_samples and mon.samples:
         sdir = out.parent / "samples"
         sdir.mkdir(parents=True, exist_ok=True)
-        # `_cuda` suffix keeps GPU samples from overwriting CPU sample files
+        # `_cuda` suffix keeps GPU samples from overwriting CPU sample files;
+        # a non-default env gets its slug prefix so campaigns can't collide.
+        slug_pfx = (f"{env_slug(cfg.env_id)}_"
+                    if cfg.env_id != DEFAULT_ENV else "")
         sfile = sdir / (
-            f"{workload}_{framework}_rep{rep}"
+            f"{slug_pfx}{workload}_{framework}_rep{rep}"
             f"{'_cuda' if device == 'cuda' else ''}.jsonl")
         sfile.write_text(
             "\n".join(json.dumps(s) for s in mon.samples) + "\n",
@@ -727,16 +735,16 @@ def run_resource_workload(
     return row
 
 
-def _collect_cfg() -> Any:
+def _collect_cfg(env_id: str = DEFAULT_ENV) -> Any:
     from benchmarks.scalability.collection import CollectionConfig
 
-    return CollectionConfig()
+    return CollectionConfig(env_id=env_id)
 
 
-def _ppo_cfg() -> Any:
+def _ppo_cfg(env_id: str = DEFAULT_ENV) -> Any:
     from benchmarks.scalability.ppo_protocols import PPOProtocolConfig
 
-    return PPOProtocolConfig()
+    return PPOProtocolConfig(env_id=env_id)
 
 
 # ---------------------------------------------------------------------------
@@ -807,9 +815,13 @@ def build_parser() -> argparse.ArgumentParser:
                    help="repetitions for the collect workload (A schedule)")
     p.add_argument("--reps-ppo", type=int, default=3,
                    help="repetitions for the ppo workload (C/D schedule)")
+    p.add_argument("--env", default=DEFAULT_ENV,
+                   help=f"gymnasium env id (default {DEFAULT_ENV}; a "
+                        "non-default env defaults to resources_<slug>.jsonl)")
     p.add_argument("--out", default=None,
                    help="JSONL output (default: "
-                        "benchmarks/resources/results/resources.jsonl)")
+                        "benchmarks/resources/results/resources.jsonl, "
+                        "with _<env-slug> appended for non-default --env)")
     p.add_argument("--device", choices=["cpu", "cuda"], default="cpu",
                    help="compute device for the workload (default cpu; "
                         "env stepping is always CPU)")
@@ -822,7 +834,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    out = Path(args.out) if args.out else DEFAULT_OUT
+    if args.out:
+        out = Path(args.out)
+    elif args.env != DEFAULT_ENV:
+        out = DEFAULT_OUT.with_name(f"resources_{env_slug(args.env)}.jsonl")
+    else:
+        out = DEFAULT_OUT
     if args.validate:
         summary = run_validation()
         print(json.dumps(summary, indent=2))
@@ -843,11 +860,14 @@ def main(argv: list[str] | None = None) -> int:
         reps = args.reps_collect if workload == "collect" else args.reps_ppo
         for fw in frameworks:
             for rep in range(reps):
-                label = f"{fw:>7} {workload:>7} rep={rep} seed={1000 + rep}"
+                label = (f"{fw:>7} {workload:>7} env={args.env} "
+                         f"rep={rep} seed={1000 + rep}")
                 try:
                     row = run_resource_workload(
                         fw, workload, rep, interval=args.interval,
                         out_path=out,
+                        collection_cfg=_collect_cfg(args.env),
+                        ppo_cfg=_ppo_cfg(args.env),
                         write_samples=not args.no_samples,
                         device=args.device)
                 except Exception:

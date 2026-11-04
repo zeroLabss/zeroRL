@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import platform
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -41,6 +42,13 @@ REQUIRED_FIELDS = (
     "environment",
     "timestamp_utc",
 )
+
+
+def env_slug(env_id: str) -> str:
+    """Filesystem-safe slug for an env id (e.g. ``HumanoidStandup-v4`` ->
+    ``humanoidstandupv4``) — used in result/figure filenames so per-env
+    campaigns can never collide with the default-env files."""
+    return re.sub(r"[^a-z0-9]", "", env_id.lower())
 
 
 def environment_info(device: str = "cpu") -> dict[str, Any]:

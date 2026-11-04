@@ -666,3 +666,16 @@ def test_cli_parser_defaults() -> None:
     assert args.workload == "all"
     assert args.interval == DEFAULT_INTERVAL_S
     assert args.reps_collect == 5 and args.reps_ppo == 3
+
+
+def test_resources_env_flag_and_slug() -> None:
+    from benchmarks.resources.run import build_parser
+    from benchmarks.scalability.results_schema import env_slug
+
+    args = build_parser().parse_args([])
+    assert args.env == "LunarLander-v3"
+    args = build_parser().parse_args(["--env", "HumanoidStandup-v4"])
+    assert args.env == "HumanoidStandup-v4"
+    # non-default env => slug-prefixed sample files (run.py composition)
+    assert f"{env_slug('HumanoidStandup-v4')}_collect_zeroRL_rep0.jsonl" == \
+        "humanoidstandupv4_collect_zeroRL_rep0.jsonl"

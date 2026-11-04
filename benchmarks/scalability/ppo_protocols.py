@@ -57,6 +57,7 @@ from benchmarks.scalability.policy_reference import (
     OBS_DIM,
     TorchRLSharedTrunk,
     build_reference_state_dict,
+    env_dims,
     load_into_sb3,
     load_into_zerorl,
     shared_trunk_policy_cls,
@@ -198,9 +199,12 @@ def run_zerorl_ppo(cfg: PPOProtocolConfig, experiment: str, num_envs: int,
 
     with lifecycle() as lc:
         t0 = time.perf_counter()
-        agent = ActorCriticAgent(OBS_DIM, ACT_DIM, is_discrete=True,
-                                 hidden_dim=HIDDEN)
-        load_into_zerorl(agent, build_reference_state_dict(cfg.reference_seed))
+        d = env_dims(cfg.env_id)
+        agent = ActorCriticAgent(d.obs_n, d.act_n,
+                                 is_discrete=d.is_discrete, hidden_dim=HIDDEN)
+        load_into_zerorl(agent, build_reference_state_dict(
+            cfg.reference_seed, obs_dim=d.obs_n, act_dim=d.act_n,
+            is_discrete=d.is_discrete))
         agent.to(device)
         tconfig = TrainConfig(
             model_name=f"bench_ppo_{experiment}",
@@ -289,7 +293,10 @@ def run_sb3_ppo(cfg: PPOProtocolConfig, experiment: str, num_envs: int,
             verbose=0,
             device=device,   # SB3 keeps its native rollout buffer on CPU
         )
-        load_into_sb3(model.policy, build_reference_state_dict(cfg.reference_seed))
+        d = env_dims(cfg.env_id)
+        load_into_sb3(model.policy, build_reference_state_dict(
+            cfg.reference_seed, obs_dim=d.obs_n, act_dim=d.act_n,
+            is_discrete=d.is_discrete))
         init_s = time.perf_counter() - t0
         lr_start, opt_ev = _lr_and_optimizer(model.policy.optimizer)
 
@@ -357,9 +364,41 @@ def _dedup_params(*modules: torch.nn.Module) -> list[torch.nn.Parameter]:
     return out
 
 
+class SummedNormal(torch.distributions.Normal):
+    """Normal with log_prob/entropy summed over the action dim.
+
+    Exactly zeroRL's ``eval_action`` reduction (``sum(dim=-1)`` for 2-D
+    outputs). torchrl's plain ``Normal`` leaves per-action-dim (B, A)
+    values for Tensor actions (only CompositeDistribution aggregates),
+    which would mis-shape ClipPPOLoss vs the working (B,) Categorical
+    path — this subclass keeps both paths shape-identical.
+    """
+
+    def log_prob(self, action: torch.Tensor) -> torch.Tensor:
+        return super().log_prob(action).sum(dim=-1)
+
+    def entropy(self) -> torch.Tensor:
+        return super().entropy().sum(dim=-1)
+
+
+class _MeanScaleHead(torch.nn.Module):
+    """Continuous PPO actor params: mean from the shared actor head, scale
+    from the trunk's TRAINABLE log_std with zeroRL's clamp semantics."""
+
+    def __init__(self, trunk: TorchRLSharedTrunk) -> None:
+        super().__init__()
+        self.trunk = trunk
+
+    def forward(self, features: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        mean = self.trunk.actor_head(features)
+        scale = self.trunk.log_std.clamp(-3.0, 1.0).exp().expand_as(mean)
+        return mean, scale
+
+
 def build_torchrl_ppo_wiring(trunk: TorchRLSharedTrunk,
                              cfg: PPOProtocolConfig,
-                             updates: int) -> dict[str, Any]:
+                             updates: int,
+                             is_discrete: bool = True) -> dict[str, Any]:
     """Single-shared-trunk PPO wiring for TorchRL (shared-trunk fix).
 
     One trunk execution per actor-critic pass:
@@ -373,6 +412,11 @@ def build_torchrl_ppo_wiring(trunk: TorchRLSharedTrunk,
     - GAE still evaluates the critic from ``td["features"]`` /
       ``td["next","features"]`` (targets, no grad; next-features injected
       per batch in the runner).
+
+    Action space: ``is_discrete=True`` wires Categorical over logits;
+    False wires :class:`SummedNormal` over (mean, scale) emitted by
+    :class:`_MeanScaleHead` (dict ``in_keys`` map Normal's ``loc``/``scale``
+    kwargs onto the td keys, per tensordict's ProbabilisticActor API).
     """
     from tensordict.nn import TensorDictModule, TensorDictSequential, composite_lp_aggregate
     from torchrl.modules import ProbabilisticActor, ValueOperator
@@ -383,24 +427,44 @@ def build_torchrl_ppo_wiring(trunk: TorchRLSharedTrunk,
               else "action_log_prob")
     feat_td = TensorDictModule(trunk.trunk, in_keys=["observation"],
                                out_keys=["features"])
-    collect_logits = TensorDictModule(trunk.actor_head,
-                                      in_keys=["features"],
-                                      out_keys=["logits"])
-    loss_logits = TensorDictModule(trunk.actor_head,
-                                   in_keys=["features"],
-                                   out_keys=["logits"])
-    collector_policy = ProbabilisticActor(
-        module=TensorDictSequential(feat_td, collect_logits),
-        in_keys=["logits"], out_keys=["action"],
-        distribution_class=torch.distributions.Categorical,
-        return_log_prob=True, log_prob_key=lp_key,
-    )
-    loss_actor = ProbabilisticActor(
-        module=loss_logits,
-        in_keys=["logits"], out_keys=["action"],
-        distribution_class=torch.distributions.Categorical,
-        return_log_prob=True, log_prob_key=lp_key,
-    )
+    if is_discrete:
+        collect_logits = TensorDictModule(trunk.actor_head,
+                                          in_keys=["features"],
+                                          out_keys=["logits"])
+        loss_logits = TensorDictModule(trunk.actor_head,
+                                       in_keys=["features"],
+                                       out_keys=["logits"])
+        collector_policy = ProbabilisticActor(
+            module=TensorDictSequential(feat_td, collect_logits),
+            in_keys=["logits"], out_keys=["action"],
+            distribution_class=torch.distributions.Categorical,
+            return_log_prob=True, log_prob_key=lp_key,
+        )
+        loss_actor = ProbabilisticActor(
+            module=loss_logits,
+            in_keys=["logits"], out_keys=["action"],
+            distribution_class=torch.distributions.Categorical,
+            return_log_prob=True, log_prob_key=lp_key,
+        )
+    else:
+        collect_params = TensorDictModule(_MeanScaleHead(trunk),
+                                          in_keys=["features"],
+                                          out_keys=["mean", "scale"])
+        loss_params = TensorDictModule(_MeanScaleHead(trunk),
+                                       in_keys=["features"],
+                                       out_keys=["mean", "scale"])
+        collector_policy = ProbabilisticActor(
+            module=TensorDictSequential(feat_td, collect_params),
+            in_keys={"loc": "mean", "scale": "scale"}, out_keys=["action"],
+            distribution_class=SummedNormal,
+            return_log_prob=True, log_prob_key=lp_key,
+        )
+        loss_actor = ProbabilisticActor(
+            module=loss_params,
+            in_keys={"loc": "mean", "scale": "scale"}, out_keys=["action"],
+            distribution_class=SummedNormal,
+            return_log_prob=True, log_prob_key=lp_key,
+        )
     critic = ValueOperator(module=trunk.critic_head,
                            in_keys=["features"],
                            out_keys=["state_value"])
@@ -470,10 +534,25 @@ def run_torchrl_ppo(cfg: PPOProtocolConfig, experiment: str, num_envs: int,
         from benchmarks.scalability.collection import rearm_first_reset
 
         rearm_first_reset(venv)
-        trunk = TorchRLSharedTrunk(build_reference_state_dict(cfg.reference_seed))
+        d = env_dims(cfg.env_id)
+        sd = build_reference_state_dict(cfg.reference_seed, obs_dim=d.obs_n,
+                                        act_dim=d.act_n,
+                                        is_discrete=d.is_discrete)
+        # default (LunarLander) path keeps the ORIGINAL call signatures so
+        # existing test doubles/spies match unchanged
+        default_dims = (d.obs_n, d.act_n, d.is_discrete) == (
+            OBS_DIM, ACT_DIM, True)
+        if default_dims:
+            trunk = TorchRLSharedTrunk(sd)
+        else:
+            trunk = TorchRLSharedTrunk(sd, obs_dim=d.obs_n, act_dim=d.act_n)
         trunk.to(device)   # before wiring + Collector: params match
         # policy_device so the collector shares these exact params (no copy).
-        wiring = build_torchrl_ppo_wiring(trunk, cfg, updates)
+        if default_dims:
+            wiring = build_torchrl_ppo_wiring(trunk, cfg, updates)
+        else:
+            wiring = build_torchrl_ppo_wiring(trunk, cfg, updates,
+                                              is_discrete=d.is_discrete)
         lr_start, opt_ev = _lr_and_optimizer(wiring["optimizer"])
         # P5: collector construction (env carrier reset + spec wiring) is
         # setup work — timed under init, never inside the measure timer.

@@ -43,10 +43,13 @@ import torch
 
 from benchmarks.scalability.budget import BudgetTracker, remaining_batches
 from benchmarks.scalability.policy_reference import (
+    ACT_DIM,
+    OBS_DIM,
     TorchRLSharedTrunk,
     build_deterministic_zerorl_agent,
     build_reference_state_dict,
     build_sb3_shared_policy,
+    env_dims,
     load_into_sb3,
 )
 
@@ -179,10 +182,12 @@ def _make_fingerprint_part() -> dict[str, Any]:
 
 
 def _absorb_actions(fb: dict[str, Any], actions: list[int],
-                    tracker: BudgetTracker) -> None:
+                    tracker: BudgetTracker, *,
+                    is_discrete: bool = True) -> None:
     for a in actions:
         if len(fb["actions_head"]) < FINGERPRINT_HEAD:
-            fb["actions_head"].append(int(a))
+            fb["actions_head"].append(int(a) if is_discrete
+                                      else round(float(a), 6))
     total = int(sum(actions))
     if tracker.target == fb.get("_warm_target"):
         fb["action_sum_warmup"] += total
@@ -323,9 +328,12 @@ def run_zerorl_collection(cfg: CollectionConfig, num_envs: int, seed: int,
         factory = seeded_env_factory(cfg.env_id, seeds)
         env = vectorize_env(factory, num_envs=num_envs)
         lc.add("env", env.close)                 # P6: never skip env close
-        obs_shape, act_shape, _, _, _ = get_obs_act(env)
+        obs_shape, act_shape, obs_n, act_n, is_discrete = get_obs_act(env)
         agent = build_deterministic_zerorl_agent(
-            build_reference_state_dict(cfg.reference_seed)
+            build_reference_state_dict(cfg.reference_seed, obs_dim=obs_n,
+                                       act_dim=act_n,
+                                       is_discrete=is_discrete),
+            obs_dim=obs_n, act_dim=act_n, is_discrete=is_discrete,
         )
         agent.to(device)
         buffer = get_actor_critic_buffer(
@@ -377,7 +385,8 @@ def run_zerorl_collection(cfg: CollectionConfig, num_envs: int, seed: int,
         warm_n = cfg.warmup
         fb = {
             "first_obs_head": [round(float(x), 6) for x in first_obs.reshape(-1)[:4]],
-            "actions_head": [int(a) for a in actions[:FINGERPRINT_HEAD]],
+            "actions_head": [int(a) if is_discrete else round(float(a), 6)
+                             for a in actions[:FINGERPRINT_HEAD]],
             "action_sum_warmup": float(np.sum(actions[:warm_n])),
             "action_sum_measure": float(np.sum(actions[warm_n:])),
         }
@@ -433,8 +442,19 @@ def run_sb3_collection(cfg: CollectionConfig, num_envs: int, seed: int,
         vec_cls = SubprocVecEnv if subproc else DummyVecEnv
         vec = vec_cls(seeded_env_fns(cfg.env_id, seeds))
         lc.add("vec_env", vec.close)   # P6: terminates SubprocVecEnv workers
-        policy = build_sb3_shared_policy(vec.observation_space, vec.action_space)
-        load_into_sb3(policy, build_reference_state_dict(cfg.reference_seed))
+        obs_space = vec.observation_space
+        act_space = vec.action_space
+        is_discrete = isinstance(act_space, gym.spaces.Discrete)
+        obs_n = int(np.prod(obs_space.shape))
+        if is_discrete:
+            act_n, action_shape = int(act_space.n), ()
+        else:
+            act_n = int(np.prod(act_space.shape))
+            action_shape = tuple(act_space.shape)
+        policy = build_sb3_shared_policy(obs_space, act_space)
+        load_into_sb3(policy, build_reference_state_dict(
+            cfg.reference_seed, obs_dim=obs_n, act_dim=act_n,
+            is_discrete=is_discrete))
         policy.to(device)   # obs_to_tensor/fwd follow policy.device; buffer stays CPU
         # Native rollout storage: rows are env-steps; +1 slack so SB3's
         # pos-wrap at exact capacity can never eat a counted row.
@@ -454,7 +474,8 @@ def run_sb3_collection(cfg: CollectionConfig, num_envs: int, seed: int,
         rollout_buf.reset()
         t = time.perf_counter()
         obs = _sb3_collect_phase(vec, policy, rollout_buf, entropy_side, obs,
-                                 warm_steps, num_envs, warm_tracker, fb)
+                                 warm_steps, num_envs, warm_tracker, fb,
+                                 action_shape=action_shape)
         warm_s = time.perf_counter() - t
         _verify_transition_count(warm_tracker.actual, cfg.warmup, "warmup")
 
@@ -467,7 +488,8 @@ def run_sb3_collection(cfg: CollectionConfig, num_envs: int, seed: int,
         rollout_buf.reset()
         t = time.perf_counter()
         obs = _sb3_collect_phase(vec, policy, rollout_buf, entropy_side, obs,
-                                 meas_steps, num_envs, meas_tracker, fb)
+                                 meas_steps, num_envs, meas_tracker, fb,
+                                 action_shape=action_shape)
         meas_s = time.perf_counter() - t
         _verify_transition_count(meas_tracker.actual, cfg.measure, "measure")
         # Measure-phase fields come from what the buffer actually stored
@@ -500,18 +522,25 @@ def run_sb3_collection(cfg: CollectionConfig, num_envs: int, seed: int,
 
 def _sb3_collect_phase(vec, policy, rollout_buf, entropy_side, obs,
                        steps: int, num_envs: int, tracker: BudgetTracker,
-                       fb: dict[str, Any]):
+                       fb: dict[str, Any],
+                       action_shape: tuple[int, ...] = ()):
     """One SB3 collection phase: single-pass forward producing all four Exp A
     fields, stored in SB3's native RolloutBuffer (+ entropy side array).
-    Returns the final observation (pre-boundary)."""
+    ``action_shape`` is the PER-ENV vec.step action shape (``()`` for
+    Discrete, e.g. ``(17,)`` for Box). Returns the final observation
+    (pre-boundary)."""
     prev_dones = np.zeros(num_envs, dtype=np.bool_)
+    is_discrete = not action_shape   # () per-env shape <=> Discrete actions
     for _ in range(steps):
         with torch.no_grad():
             obs_t, _ = policy.obs_to_tensor(obs)
             actions_t, values, log_probs, entropy = \
                 policy.forward_collection(obs_t)
-        actions = actions_t.cpu().numpy().reshape(-1)
-        _absorb_actions(fb, np.asarray(actions).reshape(-1).tolist(), tracker)
+        actions = actions_t.cpu().numpy()
+        actions = (actions.reshape(num_envs, *action_shape) if action_shape
+                   else actions.reshape(num_envs))
+        _absorb_actions(fb, np.asarray(actions).reshape(-1).tolist(), tracker,
+                        is_discrete=is_discrete)
         next_obs, rewards, dones, _ = vec.step(actions)
         row = rollout_buf.pos
         entropy_side[row] = entropy.cpu().numpy().reshape(num_envs)
@@ -550,7 +579,15 @@ def run_torchrl_collection(cfg: CollectionConfig, num_envs: int, seed: int,
         # GymWrapper's info-reader check consumed the canonical first reset;
         # re-arm so the collector's carrier reset below IS the canonical reset.
         rearm_first_reset(venv)
-        trunk = TorchRLSharedTrunk(build_reference_state_dict(cfg.reference_seed))
+        d = env_dims(cfg.env_id)
+        sd = build_reference_state_dict(cfg.reference_seed, obs_dim=d.obs_n,
+                                        act_dim=d.act_n,
+                                        is_discrete=d.is_discrete)
+        # default (LunarLander) path keeps the ORIGINAL call signature
+        if (d.obs_n, d.act_n, d.is_discrete) == (OBS_DIM, ACT_DIM, True):
+            trunk = TorchRLSharedTrunk(sd)
+        else:
+            trunk = TorchRLSharedTrunk(sd, obs_dim=d.obs_n, act_dim=d.act_n)
         trunk.to(device)   # params match policy_device => collector shares them
         policy = _TorchRLCollectPolicy(trunk)
         tdm = TensorDictModule(policy, in_keys=["observation"],
@@ -580,7 +617,7 @@ def run_torchrl_collection(cfg: CollectionConfig, num_envs: int, seed: int,
             # td batch dims are (env, time); fingerprint order must be
             # time-major (step0_env0, step0_env1, ...) to match zeroRL/SB3.
             _absorb_actions(fb, td["action"].movedim(-1, 0).reshape(-1).tolist(),
-                            warm_tracker)
+                            warm_tracker, is_discrete=d.is_discrete)
             warm_tracker.record(n)
         warm_s = time.perf_counter() - t
         _verify_transition_count(warm_tracker.actual, cfg.warmup, "warmup")
@@ -604,7 +641,7 @@ def run_torchrl_collection(cfg: CollectionConfig, num_envs: int, seed: int,
         for td in collector2:
             n = int(td.batch_size.numel())
             _absorb_actions(fb, td["action"].movedim(-1, 0).reshape(-1).tolist(),
-                            meas_tracker)
+                            meas_tracker, is_discrete=d.is_discrete)
             for key in meas_fields:
                 meas_fields[key] += n
             meas_tracker.record(n)
@@ -645,6 +682,8 @@ class _TorchRLCollectPolicy(torch.nn.Module):
     def __init__(self, trunk: TorchRLSharedTrunk) -> None:
         super().__init__()
         self.trunk = trunk
+        # presence of the trainable std parameter <=> continuous (Box) policy
+        self.continuous = hasattr(trunk, "log_std")
 
     def forward(self, obs: torch.Tensor) -> tuple[torch.Tensor, ...]:
         # ONE shared-trunk execution per step: actor_path/critic_path would
@@ -652,6 +691,17 @@ class _TorchRLCollectPolicy(torch.nn.Module):
         features = self.trunk.trunk(obs)
         logits = self.trunk.actor_head(features)
         value = self.trunk.critic_head(features).squeeze(-1)
+        if self.continuous:
+            # Mirrors zeroRL build_distribution/eval_action exactly:
+            # scale = exp(clamp(log_std, -3, 1)), deterministic action =
+            # Normal mode (mean), log_prob/entropy summed over the action dim.
+            scale = torch.clamp(self.trunk.log_std, min=-3.0,
+                                max=1.0).exp().expand_as(logits)
+            dist = torch.distributions.Normal(logits, scale)
+            actions = logits
+            log_prob = dist.log_prob(actions).sum(dim=-1)
+            entropy = dist.entropy().sum(dim=-1)
+            return actions, log_prob, entropy, value
         dist = torch.distributions.Categorical(logits=logits)
         actions = dist.probs.argmax(dim=-1)
         log_prob = dist.log_prob(actions)

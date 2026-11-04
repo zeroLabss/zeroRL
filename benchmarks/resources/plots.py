@@ -228,7 +228,7 @@ def _plot_resource_file(res_file: Path, out_dir: Path,
     fws = [fw for fw in FRAMEWORK_ORDER
            if any(fw in cells[w] for w in workloads)]
     paths: list[Path] = []
-    workload_device = "cuda" if suffix else "cpu"
+    workload_device = ("cuda" if suffix.endswith("_gpu") else "cpu")
 
     def _vals(wl: str, fw: str, getter):
         return [v for r in cells[wl].get(fw, [])
@@ -302,8 +302,9 @@ def _plot_resource_file(res_file: Path, out_dir: Path,
     # 4) GPU telemetry (only when available in THIS side's rows)
     gpu_rows = [r for r in rows
                 if r["extra"]["resources"].get("gpu", {}).get("available")]
-    telemetry_name = (f"resources_gpu{suffix}.png" if not suffix
-                      else f"resources_telemetry{suffix}.png")
+    telemetry_name = (f"resources_telemetry{suffix}.png"
+                      if suffix.endswith("_gpu")
+                      else f"resources_gpu{suffix}.png")
     if gpu_rows:
         fig, axes = plt.subplots(1, 2, figsize=(11, 4))
         g = lambda r, k: r["extra"]["resources"]["gpu"].get(k)  # noqa: E731
@@ -368,21 +369,25 @@ def _plot_resource_file(res_file: Path, out_dir: Path,
 
 
 def plot_resources(results_dir: Path, out_dir: Path,
-                   suffix: str = "") -> list[Path]:
+                   suffix: str = "", *, slug: str = "") -> list[Path]:
     """Resource-consumption figures (experiment R), both device sides.
 
-    Renders ``resources{suffix}.jsonl`` (CPU side with the default
-    ``suffix=""``; existing figure names unchanged), then — only when no
-    explicit suffix is given — auto-detects ``resources_gpu.jsonl`` and
-    renders the GPU side with ``suffix="_gpu"``. Statistics/telemetry
-    availability are always evaluated within one side, never combined.
+    Renders ``resources{slug}.jsonl`` (CPU side; default ``slug=""`` keeps
+    existing figure names byte-identical), then — only when no explicit
+    suffix is given — auto-detects ``resources{slug}_gpu.jsonl`` and
+    renders the GPU side with ``{slug}_gpu`` figure suffix. Statistics/
+    telemetry availability are always evaluated within one side, never
+    combined.
     """
-    paths = _plot_resource_file(results_dir / f"resources{suffix}.jsonl",
-                                out_dir, suffix)
+    sfx = f"_{slug}" if slug else ""
+    cpu_sfx = f"{sfx}{suffix}"
+    paths = _plot_resource_file(results_dir / f"resources{cpu_sfx}.jsonl",
+                                out_dir, cpu_sfx)
     if not suffix:
-        gpu_file = results_dir / "resources_gpu.jsonl"
+        gpu_sfx = f"{sfx}_gpu"
+        gpu_file = results_dir / f"resources{gpu_sfx}.jsonl"
         if gpu_file.exists():
-            paths += _plot_resource_file(gpu_file, out_dir, "_gpu")
+            paths += _plot_resource_file(gpu_file, out_dir, gpu_sfx)
     return paths
 
 
@@ -392,6 +397,9 @@ def build_parser() -> argparse.ArgumentParser:
                    default=str(REPO_ROOT / "benchmarks/resources/results"))
     p.add_argument("--out", default=None,
                    help="figure output dir (default: <results-dir>/figures)")
+    p.add_argument("--env-slug", default="",
+                   help="env slug used in result/figure filenames "
+                        "(default '': reads resources.jsonl, unchanged)")
     return p
 
 
@@ -399,7 +407,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     results_dir = Path(args.results_dir)
     out_dir = Path(args.out) if args.out else results_dir / "figures"
-    paths = plot_resources(results_dir, out_dir)
+    paths = plot_resources(results_dir, out_dir, slug=args.env_slug)
     for p in paths:
         print(f"[fig] {p}")
     print(f"generated {len(paths)} figures")

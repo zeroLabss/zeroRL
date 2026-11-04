@@ -1694,3 +1694,125 @@ class TestCLIErrorRecording:
         assert row["status"] == "failed"
         assert "cli-boom-marker" in row["error"]
         assert "Traceback" in row["error"]
+
+
+class TestEnvAgnosticAdaptation:
+    """Env-agnostic + continuous-action adaptation of the shared reference
+    policy (HumanoidStandup-v4 as the continuous case)."""
+
+    def test_env_slug_and_dims(self) -> None:
+        assert schema.env_slug("HumanoidStandup-v4") == "humanoidstandupv4"
+        assert schema.env_slug("LunarLander-v3") == "lunarlanderv3"
+
+        d = ref.env_dims("LunarLander-v3")
+        assert (d.obs_n, d.act_n, d.is_discrete) == (8, 4, True)
+
+        d = ref.env_dims("HumanoidStandup-v4")   # gym.make; lru-cached
+        assert d.obs_shape == (376,)
+        assert d.act_n == 17
+        assert d.is_discrete is False
+
+    def test_humanoid_reference_sd_shapes(self) -> None:
+        sd = ref.build_reference_state_dict(4242, obs_dim=376, act_dim=17,
+                                             is_discrete=False)
+        assert sd["extract_layer.0.weight"].shape == (64, 376)
+        assert sd["actor.weight"].shape == (17, 64)
+        assert "log_std" in sd and sd["log_std"].shape == (17,)
+
+        trunk = ref.TorchRLSharedTrunk(sd, obs_dim=376, act_dim=17)
+        assert isinstance(trunk.log_std, torch.nn.Parameter)
+        assert any(p is trunk.log_std for p in trunk.parameters())
+
+        # default (LunarLander-shaped) sd is unchanged by the adaptation
+        default_sd = ref.build_reference_state_dict()
+        assert default_sd["extract_layer.0.weight"].shape == (64, 8)
+        assert "log_std" not in default_sd
+
+    def test_continuous_cross_framework_equivalence(self) -> None:
+        pytest.importorskip("stable_baselines3")
+        pytest.importorskip("torchrl")
+        import gymnasium as gym
+
+        from benchmarks.scalability.collection import _TorchRLCollectPolicy
+
+        sd = ref.build_reference_state_dict(4242, obs_dim=376, act_dim=17,
+                                             is_discrete=False)
+        agent = ref.build_deterministic_zerorl_agent(
+            sd, obs_dim=376, act_dim=17, is_discrete=False)
+        sb3 = ref.build_sb3_shared_policy(
+            gym.spaces.Box(-1.0, 1.0, shape=(376,), dtype="float32"),
+            gym.spaces.Box(-1.0, 1.0, shape=(17,), dtype="float32"))
+        ref.load_into_sb3(sb3, sd)
+        trunk = ref.TorchRLSharedTrunk(sd, obs_dim=376, act_dim=17)
+        torchrl_policy = _TorchRLCollectPolicy(trunk)
+
+        torch.manual_seed(0)
+        obs = torch.randn(8, 376)
+
+        z = agent.get_action(obs)
+        s_actions, s_values, s_lp, s_ent = sb3.forward_collection(obs)
+        t_actions, t_lp, t_ent, t_value = torchrl_policy(obs)
+
+        for label, actions, values, lp, ent in (
+            ("SB3", s_actions, s_values.squeeze(-1), s_lp, s_ent),
+            ("TorchRL", t_actions, t_value, t_lp, t_ent),
+        ):
+            assert torch.allclose(actions, z["action"], atol=1e-5), label
+            assert torch.allclose(values, z["value"], atol=1e-5), label
+            assert torch.allclose(lp, z["log_prob"], atol=1e-5), label
+            assert torch.allclose(ent, z["entropy"], atol=1e-5), label
+
+    def test_env_flag_and_auto_out(self, monkeypatch, tmp_path) -> None:
+        from pathlib import Path
+
+        from benchmarks.resources import report as resources_report
+        from benchmarks.resources import plots as resources_plots
+        from benchmarks.scalability import plots as scaling_plots
+        from benchmarks.scalability import report as scaling_report
+
+        run_mod = __import__("benchmarks.scalability.run", fromlist=["run"])
+        res_run = __import__("benchmarks.resources.run", fromlist=["run"])
+
+        # run.py: --env default + override (slug flag lives on report/plots)
+        for mod in (run_mod, res_run):
+            assert mod.build_parser().parse_args([]).env == "LunarLander-v3"
+            parsed = mod.build_parser().parse_args(
+                ["--env", "HumanoidStandup-v4"])
+            assert parsed.env == "HumanoidStandup-v4"
+
+        # resources report/plots expose build_parser: --env-slug default ""
+        # + accepted override
+        for mod in (resources_report, resources_plots):
+            assert mod.build_parser().parse_args([]).env_slug == ""
+            parsed = mod.build_parser().parse_args(["--env-slug", "x"])
+            assert parsed.env_slug == "x"
+
+        # scalability report/plots build their parser inline in main():
+        # capture the slug actually forwarded to the generator
+        results_dir = tmp_path / "results"
+        results_dir.mkdir()
+        common = ["--results-dir", str(results_dir),
+                  "--out", str(tmp_path / "out")]
+        for mod, fn_name, stub in (
+            (scaling_report, "generate_report",
+             lambda: tmp_path / "REPORT.md"),
+            (scaling_plots, "generate_all",
+             lambda: [Path("f.png")]),
+        ):
+            captured: list[str] = []
+
+            # avoid touching real results: replace, then only capture slug
+            def stub_fn(*_args, __cap=captured, **kwargs):
+                __cap.append(kwargs.get("slug", ""))
+                return stub()
+
+            monkeypatch.setattr(mod, fn_name, stub_fn)
+            assert mod.main(common) == 0
+            assert mod.main(common + ["--env-slug", "x"]) == 0
+            assert captured == ["", "x"], (fn_name, captured)
+
+        # auto-out composition used by run.py mains for a non-default env
+        assert ("expA_" + schema.env_slug("HumanoidStandup-v4")
+                + ".jsonl") == "expA_humanoidstandupv4.jsonl"
+        assert ("resources_" + schema.env_slug("HumanoidStandup-v4")
+                + ".jsonl") == "resources_humanoidstandupv4.jsonl"

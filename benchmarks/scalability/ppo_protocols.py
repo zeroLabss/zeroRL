@@ -71,7 +71,7 @@ DEFAULT_PPO_TOTAL = 262_144
 class PPOProtocolConfig:
     """Workload + shared hyperparameters for Experiments C/D."""
 
-    env_id: str = "LunarLander-v3"
+    env_id: str = "HumanoidStandup-v5"
     total: int = DEFAULT_PPO_TOTAL
     lr: float = 3e-4
     gamma: float = 0.99

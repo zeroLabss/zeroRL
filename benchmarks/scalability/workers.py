@@ -34,8 +34,11 @@ from benchmarks.scalability.collection import (
     run_zerorl_collection,
 )
 from benchmarks.scalability.policy_reference import (
+    ACT_DIM,
+    OBS_DIM,
     TorchRLSharedTrunk,
     build_reference_state_dict,
+    env_dims,
 )
 
 NUM_ENVS_B = 8
@@ -117,7 +120,15 @@ def run_torchrl_mp_collection(cfg: CollectionConfig, num_envs: int,
 
     with lifecycle() as lc:
         t0 = time.perf_counter()
-        trunk = TorchRLSharedTrunk(build_reference_state_dict(cfg.reference_seed))
+        d = env_dims(cfg.env_id)
+        sd = build_reference_state_dict(cfg.reference_seed, obs_dim=d.obs_n,
+                                        act_dim=d.act_n,
+                                        is_discrete=d.is_discrete)
+        # default (LunarLander) path keeps the ORIGINAL call signature
+        if (d.obs_n, d.act_n, d.is_discrete) == (OBS_DIM, ACT_DIM, True):
+            trunk = TorchRLSharedTrunk(sd)
+        else:
+            trunk = TorchRLSharedTrunk(sd, obs_dim=d.obs_n, act_dim=d.act_n)
         policy = _TorchRLCollectPolicy(trunk)
         tdm = TensorDictModule(policy, in_keys=["observation"],
                                out_keys=["action", "log_prob", "entropy", "value"])
@@ -145,7 +156,7 @@ def run_torchrl_mp_collection(cfg: CollectionConfig, num_envs: int,
                 first_obs = [round(float(x), 6)
                              for x in td["observation"][0, 0].reshape(-1)[:4]]
             _absorb_actions(fb, td["action"].movedim(-1, 0).reshape(-1).tolist(),
-                            warm_tracker)
+                            warm_tracker, is_discrete=d.is_discrete)
             warm_tracker.record(n)
         warm_s = time.perf_counter() - t
         _verify_transition_count(warm_tracker.actual, cfg.warmup, "warmup")
@@ -170,7 +181,7 @@ def run_torchrl_mp_collection(cfg: CollectionConfig, num_envs: int,
         for td in collector2:
             n = int(td.batch_size.numel())
             _absorb_actions(fb, td["action"].movedim(-1, 0).reshape(-1).tolist(),
-                            meas_tracker)
+                            meas_tracker, is_discrete=d.is_discrete)
             meas_tracker.record(n)
         meas_s = time.perf_counter() - t
         _verify_transition_count(meas_tracker.actual, cfg.measure, "measure")

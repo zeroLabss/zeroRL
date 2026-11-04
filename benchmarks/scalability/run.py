@@ -47,12 +47,18 @@ from benchmarks.scalability.ppo_protocols import (  # noqa: E402
     PPOProtocolConfig,
     run_ppo_training,
 )
-from benchmarks.scalability.results_schema import append_row, make_row  # noqa: E402
+from benchmarks.scalability.results_schema import (  # noqa: E402
+    append_row,
+    env_slug,
+    make_row,
+)
 from benchmarks.scalability.workers import (  # noqa: E402
     NUM_ENVS_B,
     UnsupportedConfiguration,
     run_b_collection,
 )
+
+DEFAULT_ENV = "LunarLander-v3"
 
 
 def _parse_ints(text: str) -> list[int]:
@@ -90,9 +96,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--measure", type=int, default=100_000)
     p.add_argument("--total", type=int, default=DEFAULT_PPO_TOTAL,
                    help="total PPO transitions for experiments C/D")
+    p.add_argument("--env", default=DEFAULT_ENV,
+                   help=f"gymnasium env id (default {DEFAULT_ENV}; a "
+                        "non-default env writes to exp<EXPERIMENT>_<slug>.jsonl)")
     p.add_argument("--out", default=None,
                    help="JSONL output (default: benchmarks/scalability/results/"
-                        "exp<EXPERIMENT>.jsonl)")
+                        "exp<EXPERIMENT>.jsonl, with _<env-slug> appended for "
+                        "non-default --env)")
     p.add_argument("--device", choices=["cpu", "cuda"], default="cpu",
                    help="compute device for policies/agents (default cpu; "
                         "env stepping is always CPU)")
@@ -104,13 +114,18 @@ def main(argv: list[str] | None = None) -> int:
     frameworks = _parse_frameworks(args.frameworks)
     is_ppo = args.experiment in EXPERIMENTS_CD
     reps = args.reps if args.reps is not None else (3 if is_ppo else 5)
-    out = Path(args.out) if args.out else (
-        REPO_ROOT / "benchmarks/scalability" / "results" / f"exp{args.experiment}.jsonl"
-    )
+    if args.out:
+        out = Path(args.out)
+    else:
+        sfx = f"_{env_slug(args.env)}" if args.env != DEFAULT_ENV else ""
+        out = (REPO_ROOT / "benchmarks/scalability" / "results"
+               / f"exp{args.experiment}{sfx}.jsonl")
     out.parent.mkdir(parents=True, exist_ok=True)
+    print(f"[env] {args.env} -> {out}", flush=True)
 
     ppo_cfg: PPOProtocolConfig | None = None
-    cfg = CollectionConfig(warmup=args.warmup, measure=args.measure)
+    cfg = CollectionConfig(env_id=args.env, warmup=args.warmup,
+                           measure=args.measure)
 
     # (framework, num_envs, num_workers, mode)
     if args.experiment == "A":
@@ -127,7 +142,7 @@ def main(argv: list[str] | None = None) -> int:
             for w in workers
         ]
     else:
-        ppo_cfg = PPOProtocolConfig(total=args.total)
+        ppo_cfg = PPOProtocolConfig(env_id=args.env, total=args.total)
         env_counts = _parse_ints(args.envs)
         for n in env_counts:
             try:

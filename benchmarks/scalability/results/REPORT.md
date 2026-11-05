@@ -1,6 +1,6 @@
 # Scalability benchmark report
 
-Generated: 2026-11-03T23:13:55.289212+00:00 · rows: 517 · figures in `figures/`
+Generated: 2026-11-05T12:41:52.117437+00:00 · rows: 601 · figures in `figures/`
 
 ## Environment
 
@@ -161,21 +161,21 @@ Rows recorded with device=cuda; every statistic in this section is computed on t
 
 | framework | N | updates | throughput (trans/s) | mean time (s) | mean return (last 100) | reps |
 | --- | --- | --- | --- | --- | --- | --- |
-| zeroRL | 1 | 128 | 816.5 ± 4.1 | 321.1 | -156.4 ± 102.0 | 3 |
-| zeroRL | 2 | 128 | 1,028.6 ± 1.0 | 254.9 | -93.2 ± 9.3 | 3 |
-| zeroRL | 4 | 128 | 1,279.2 ± 3.0 | 204.9 | -162.9 ± 44.9 | 3 |
-| zeroRL | 8 | 128 | 1,293.0 ± 5.7 | 202.8 | -59.4 ± 66.5 | 3 |
-| zeroRL | 16 | 128 | 1,484.7 ± 5.2 | 176.6 | -68.4 ± 111.2 | 3 |
-| SB3 | 1 | 128 | 716.9 ± 1.9 | 365.7 | -155.6 ± 44.8 | 3 |
-| SB3 | 2 | 128 | 873.2 ± 3.6 | 300.2 | -53.4 ± 38.9 | 3 |
-| SB3 | 4 | 128 | 1,046.4 ± 2.1 | 250.5 | -97.3 ± 112.5 | 3 |
-| SB3 | 8 | 128 | 1,063.3 ± 1.6 | 246.5 | -78.1 ± 111.2 | 3 |
-| SB3 | 16 | 128 | 1,174.8 ± 5.8 | 223.1 | -96.1 ± 46.7 | 3 |
-| TorchRL | 1 | 128 | 431.0 ± 3.0 | 608.2 | -116.9 ± 49.3 | 3 |
-| TorchRL | 2 | 128 | 552.3 ± 2.1 | 474.7 | -57.5 ± 80.4 | 3 |
-| TorchRL | 4 | 128 | 707.9 ± 2.7 | 370.3 | -117.8 ± 57.2 | 3 |
-| TorchRL | 8 | 128 | 803.0 ± 9.3 | 326.5 | -125.5 ± 4.8 | 3 |
-| TorchRL | 16 | 128 | 887.8 ± 11.4 | 295.3 | -58.2 ± 98.9 | 3 |
+| zeroRL | 1 | 128 | 814.2 ± 6.3 | 322.0 | -156.4 ± 91.2 | 6 |
+| zeroRL | 2 | 128 | 1,025.3 ± 5.1 | 255.7 | -93.2 ± 8.3 | 6 |
+| zeroRL | 4 | 128 | 1,277.0 ± 9.3 | 205.3 | -162.9 ± 40.2 | 6 |
+| zeroRL | 8 | 128 | 1,295.0 ± 6.7 | 202.4 | -59.4 ± 59.5 | 6 |
+| zeroRL | 16 | 128 | 1,488.7 ± 8.9 | 176.1 | -68.4 ± 99.4 | 6 |
+| SB3 | 1 | 128 | 719.8 ± 3.4 | 364.2 | -155.6 ± 40.1 | 6 |
+| SB3 | 2 | 128 | 874.6 ± 3.7 | 299.7 | -53.4 ± 34.8 | 6 |
+| SB3 | 4 | 128 | 1,047.4 ± 2.0 | 250.3 | -97.3 ± 100.6 | 6 |
+| SB3 | 8 | 128 | 1,062.8 ± 4.3 | 246.7 | -78.1 ± 99.5 | 6 |
+| SB3 | 16 | 128 | 1,174.4 ± 4.2 | 223.2 | -96.1 ± 41.8 | 6 |
+| TorchRL | 1 | 128 | 427.2 ± 5.0 | 613.7 | -116.9 ± 44.1 | 6 |
+| TorchRL | 2 | 128 | 547.2 ± 5.9 | 479.1 | -57.5 ± 71.9 | 6 |
+| TorchRL | 4 | 128 | 703.2 ± 7.1 | 372.8 | -117.8 ± 51.2 | 6 |
+| TorchRL | 8 | 128 | 809.7 ± 9.8 | 323.8 | -125.5 ± 4.3 | 6 |
+| TorchRL | 16 | 128 | 897.7 ± 14.5 | 292.1 | -58.2 ± 88.4 | 6 |
 
 ![throughput](figures/expD_throughput.png)
 
@@ -198,35 +198,77 @@ Rows recorded with device=cuda; every statistic in this section is computed on t
 - Exp C PPO, N=4: fastest = **zeroRL** (1,275 trans/s); also SB3 1,057, TorchRL 690.
 - Exp C PPO, N=8: fastest = **zeroRL** (1,283 trans/s); also SB3 1,066, TorchRL 780.
 - Exp C PPO, N=16: fastest = **zeroRL** (1,453 trans/s); also SB3 1,187, TorchRL 862.
-- Exp D PPO, N=1: fastest = **zeroRL** (817 trans/s); also SB3 717, TorchRL 431.
-- Exp D PPO, N=2: fastest = **zeroRL** (1,029 trans/s); also SB3 873, TorchRL 552.
-- Exp D PPO, N=4: fastest = **zeroRL** (1,279 trans/s); also SB3 1,046, TorchRL 708.
-- Exp D PPO, N=8: fastest = **zeroRL** (1,293 trans/s); also SB3 1,063, TorchRL 803.
-- Exp D PPO, N=16: fastest = **zeroRL** (1,485 trans/s); also SB3 1,175, TorchRL 888.
+- Exp D PPO, N=1: fastest = **zeroRL** (814 trans/s); also SB3 720, TorchRL 427.
+- Exp D PPO, N=2: fastest = **zeroRL** (1,025 trans/s); also SB3 875, TorchRL 547.
+- Exp D PPO, N=4: fastest = **zeroRL** (1,277 trans/s); also SB3 1,047, TorchRL 703.
+- Exp D PPO, N=8: fastest = **zeroRL** (1,295 trans/s); also SB3 1,063, TorchRL 810.
+- Exp D PPO, N=16: fastest = **zeroRL** (1,489 trans/s); also SB3 1,174, TorchRL 898.
 - zeroRL env-scaling efficiency at N=16: 0.31 ± 0.00 (speedup 4.93 ± 0.05, n=5 paired reps, 16x envs).
 - SB3 env-scaling efficiency at N=16: 0.31 ± 0.01 (speedup 5.02 ± 0.13, n=5 paired reps, 16x envs).
 - TorchRL env-scaling efficiency at N=16: 0.43 ± 0.02 (speedup 6.94 ± 0.36, n=5 paired reps, 16x envs).
 - zeroRL worker parallel efficiency at W=1: 1.00 (speedup 1.00, n=5 paired reps, 1x workers).
 - SB3 worker parallel efficiency at W=8: 0.11 ± 0.00 (speedup 0.89 ± 0.02, n=5 paired reps, 8x workers).
 - TorchRL worker parallel efficiency at W=8: 0.32 ± 0.00 (speedup 2.55 ± 0.04, n=5 paired reps, 8x workers).
-- zeroRL N=1: training throughput C=766 vs D=817 trans/s (D faster).
-- SB3 N=1: training throughput C=724 vs D=717 trans/s (≈ equal).
-- TorchRL N=1: training throughput C=424 vs D=431 trans/s (D faster).
+- zeroRL N=1: training throughput C=766 vs D=814 trans/s (D faster).
+- SB3 N=1: training throughput C=724 vs D=720 trans/s (≈ equal).
+- TorchRL N=1: training throughput C=424 vs D=427 trans/s (≈ equal).
 
 ## Data integrity
 
 | experiment | ok | failed | unsupported |
 | --- | --- | --- | --- |
-| A | 162 | 0 | 0 |
+| A | 162 | 39 | 0 |
 | B | 35 | 0 | 25 |
 | C | 45 | 0 | 0 |
-| D | 45 | 0 | 0 |
+| D | 90 | 0 | 0 |
 
 All ok rows recorded an exact transition budget.
 
+**Failed rows:**
+
+- exp A zeroRL N=1 rep=0: RuntimeError: mat1 and mat2 shapes cannot be multiplied (1x348 and 8x64)
+- exp A zeroRL N=1 rep=1: RuntimeError: mat1 and mat2 shapes cannot be multiplied (1x348 and 8x64)
+- exp A zeroRL N=1 rep=2: RuntimeError: mat1 and mat2 shapes cannot be multiplied (1x348 and 8x64)
+- exp A zeroRL N=1 rep=3: RuntimeError: mat1 and mat2 shapes cannot be multiplied (1x348 and 8x64)
+- exp A zeroRL N=1 rep=4: RuntimeError: mat1 and mat2 shapes cannot be multiplied (1x348 and 8x64)
+- exp A zeroRL N=2 rep=0: RuntimeError: mat1 and mat2 shapes cannot be multiplied (2x348 and 8x64)
+- exp A zeroRL N=2 rep=1: RuntimeError: mat1 and mat2 shapes cannot be multiplied (2x348 and 8x64)
+- exp A zeroRL N=2 rep=2: RuntimeError: mat1 and mat2 shapes cannot be multiplied (2x348 and 8x64)
+- exp A zeroRL N=2 rep=3: RuntimeError: mat1 and mat2 shapes cannot be multiplied (2x348 and 8x64)
+- exp A zeroRL N=2 rep=4: RuntimeError: mat1 and mat2 shapes cannot be multiplied (2x348 and 8x64)
+- exp A zeroRL N=4 rep=0: RuntimeError: mat1 and mat2 shapes cannot be multiplied (4x348 and 8x64)
+- exp A zeroRL N=4 rep=1: RuntimeError: mat1 and mat2 shapes cannot be multiplied (4x348 and 8x64)
+- exp A zeroRL N=4 rep=2: RuntimeError: mat1 and mat2 shapes cannot be multiplied (4x348 and 8x64)
+- exp A zeroRL N=4 rep=3: RuntimeError: mat1 and mat2 shapes cannot be multiplied (4x348 and 8x64)
+- exp A zeroRL N=4 rep=4: RuntimeError: mat1 and mat2 shapes cannot be multiplied (4x348 and 8x64)
+- exp A zeroRL N=8 rep=0: RuntimeError: mat1 and mat2 shapes cannot be multiplied (8x348 and 8x64)
+- exp A zeroRL N=8 rep=1: RuntimeError: mat1 and mat2 shapes cannot be multiplied (8x348 and 8x64)
+- exp A zeroRL N=8 rep=2: RuntimeError: mat1 and mat2 shapes cannot be multiplied (8x348 and 8x64)
+- exp A zeroRL N=8 rep=3: RuntimeError: mat1 and mat2 shapes cannot be multiplied (8x348 and 8x64)
+- exp A zeroRL N=8 rep=4: RuntimeError: mat1 and mat2 shapes cannot be multiplied (8x348 and 8x64)
+- exp A zeroRL N=16 rep=0: RuntimeError: mat1 and mat2 shapes cannot be multiplied (16x348 and 8x64)
+- exp A zeroRL N=16 rep=1: RuntimeError: mat1 and mat2 shapes cannot be multiplied (16x348 and 8x64)
+- exp A zeroRL N=16 rep=2: RuntimeError: mat1 and mat2 shapes cannot be multiplied (16x348 and 8x64)
+- exp A zeroRL N=16 rep=3: RuntimeError: mat1 and mat2 shapes cannot be multiplied (16x348 and 8x64)
+- exp A zeroRL N=16 rep=4: RuntimeError: mat1 and mat2 shapes cannot be multiplied (16x348 and 8x64)
+- exp A SB3 N=1 rep=0: RuntimeError: The size of tensor a (348) must match the size of tensor b (8) at non-singleton dimension 1
+- exp A SB3 N=1 rep=1: RuntimeError: The size of tensor a (348) must match the size of tensor b (8) at non-singleton dimension 1
+- exp A SB3 N=1 rep=2: RuntimeError: The size of tensor a (348) must match the size of tensor b (8) at non-singleton dimension 1
+- exp A SB3 N=1 rep=3: RuntimeError: The size of tensor a (348) must match the size of tensor b (8) at non-singleton dimension 1
+- exp A SB3 N=1 rep=4: RuntimeError: The size of tensor a (348) must match the size of tensor b (8) at non-singleton dimension 1
+- exp A SB3 N=2 rep=0: RuntimeError: The size of tensor a (348) must match the size of tensor b (8) at non-singleton dimension 1
+- exp A SB3 N=2 rep=1: RuntimeError: The size of tensor a (348) must match the size of tensor b (8) at non-singleton dimension 1
+- exp A SB3 N=2 rep=2: RuntimeError: The size of tensor a (348) must match the size of tensor b (8) at non-singleton dimension 1
+- exp A SB3 N=2 rep=3: RuntimeError: The size of tensor a (348) must match the size of tensor b (8) at non-singleton dimension 1
+- exp A SB3 N=2 rep=4: RuntimeError: The size of tensor a (348) must match the size of tensor b (8) at non-singleton dimension 1
+- exp A SB3 N=4 rep=0: RuntimeError: The size of tensor a (348) must match the size of tensor b (8) at non-singleton dimension 1
+- exp A SB3 N=4 rep=1: RuntimeError: The size of tensor a (348) must match the size of tensor b (8) at non-singleton dimension 1
+- exp A SB3 N=4 rep=2: RuntimeError: The size of tensor a (348) must match the size of tensor b (8) at non-singleton dimension 1
+- exp A SB3 N=4 rep=3: RuntimeError: The size of tensor a (348) must match the size of tensor b (8) at non-singleton dimension 1
+
 GPU rows: 205 (device=cuda)
 
-Total rows: 517.
+Total rows: 601.
 
 ## Appendix — protocol C/D configuration (from a result row)
 

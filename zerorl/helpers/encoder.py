@@ -24,7 +24,7 @@ class ObservationEncoder(nn.Module):
         image_layout: Literal["auto", "CHW", "HWC"] = "auto",
         image_scale: float | None = 255.0):
         super().__init__()
-        self.obs_shape = (obs_shape,) if isinstance(obs_shape, int) else tuple(obs_shape)
+        self.obs_shape = (obs_shape,) if isinstance(obs_shape, int) else obs_shape
         if not self.obs_shape or any(dim <= 0 for dim in self.obs_shape):
             raise ValueError(f"Invalid observation shape: {self.obs_shape}")
         if image_scale is not None and image_scale <= 0:
@@ -74,7 +74,9 @@ class ObservationEncoder(nn.Module):
         self.output_dim = self.n_features
 
     def forward(self, state: torch.Tensor):
-        x = state.float()
+        x = state
+        if x.ndim == len(self.obs_shape):
+            x = x.unsqueeze(0)
         if self.is_image:
             if self.image_layout == "HWC":
                 x = x.permute(0, 3, 1, 2).contiguous()

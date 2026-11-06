@@ -118,7 +118,7 @@ class ActorCriticAgent(BaseAgent):
         is_discrete: Whether the action space is discrete.
         hidden_dim: Hidden layer size (default 64).
     """
-    def __init__(self, input_dim: int, output_dim: int, is_discrete: bool, hidden_dim: int = 64):
+    def __init__(self, input_dim: tuple[int, ...] | int, output_dim: int, is_discrete: bool, hidden_dim: int = 64):
         super().__init__()
 
         self.is_discrete = is_discrete

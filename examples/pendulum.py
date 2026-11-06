@@ -6,7 +6,8 @@ config = TrainConfig(
     model_name="Pendulum",
     project_name="Pendulum-example",
     timestamp = 1_000_000,
-    num_envs = 4
+    num_envs = 4,
+    profile = True
 )
 config.device = torch.device("cpu")
 algo_config = AlgoConfig(ent_coef=0.0)

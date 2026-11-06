@@ -357,6 +357,50 @@ def _dedup_params(*modules: torch.nn.Module) -> list[torch.nn.Parameter]:
     return out
 
 
+<<<<<<< HEAD
+=======
+class SummedNormal(torch.distributions.Normal):
+    """Normal with log_prob/entropy summed over the action dim.
+
+    Exactly zeroRL's ``eval_action`` reduction (``sum(dim=-1)`` for 2-D
+    outputs). torchrl's plain ``Normal`` leaves per-action-dim (B, A)
+    values for Tensor actions (only CompositeDistribution aggregates),
+    which would mis-shape ClipPPOLoss vs the working (B,) Categorical
+    path — this subclass keeps both paths shape-identical.
+    """
+
+    def log_prob(self, action: torch.Tensor) -> torch.Tensor:
+        return super().log_prob(action).sum(dim=-1)
+
+    def entropy(self) -> torch.Tensor:
+        return super().entropy().sum(dim=-1)
+
+    @property
+    def deterministic_sample(self) -> torch.Tensor:
+        """Gaussian mode == mean: torchrl's deterministic-action API.
+
+        Provides the attribute SafeProbabilisticModule looks up so it takes
+        its fast path instead of warning about a mean fallback — the value
+        is identical either way (for a Normal, the mode is the mean).
+        """
+        return self.mean
+
+
+class _MeanScaleHead(torch.nn.Module):
+    """Continuous PPO actor params: mean from the shared actor head, scale
+    from the trunk's TRAINABLE log_std with zeroRL's clamp semantics."""
+
+    def __init__(self, trunk: TorchRLSharedTrunk) -> None:
+        super().__init__()
+        self.trunk = trunk
+
+    def forward(self, features: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        mean = self.trunk.actor_head(features)
+        scale = self.trunk.log_std.clamp(-3.0, 1.0).exp().expand_as(mean)
+        return mean, scale
+
+
+>>>>>>> b26e8ba (refact(factory): init encoder in orthogonal init)
 def build_torchrl_ppo_wiring(trunk: TorchRLSharedTrunk,
                              cfg: PPOProtocolConfig,
                              updates: int) -> dict[str, Any]:

@@ -147,14 +147,19 @@ class ActorCriticAgent(BaseAgent):
         self._orthogonal_init()
 
 
-    def _init_layer(self, layer: nn.Linear, gain: float):
+    def _init_layer(self, layer: nn.Linear | nn.Conv2d, gain: float):
         nn.init.orthogonal_(layer.weight, gain=gain)
         if layer.bias is not None: nn.init.constant_(layer.bias, 0.0)
 
     def _orthogonal_init(self):
         """Apply orthogonal weight initialization with gain based on layer role."""
-        # Hidden layers
-        for layer in self.extract_layer:
+        # CNN layers
+        for layer in self.encoder.features.modules():
+            if isinstance(layer, nn.Conv2d):
+                self._init_layer(layer, gain=np.sqrt(2))
+
+        # Extract layers
+        for layer in self.extract_layer.modules():
             if isinstance(layer, nn.Linear):
                 self._init_layer(layer, gain=np.sqrt(2))
         # Actor output
@@ -233,7 +238,7 @@ class PolicyAgent(BaseAgent):
 
     def _orthogonal_init(self):
         """Apply orthogonal weight initialization with gain based on layer role."""
-        # Hidden layers
+        # Extractor layers
         for layer in self.extract_layer:
             if isinstance(layer, nn.Linear):
                 self._init_layer(layer, gain=np.sqrt(2))

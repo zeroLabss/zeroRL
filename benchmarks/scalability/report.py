@@ -1,5 +1,4 @@
 """Generate REPORT.md from the benchmark result JSONL files.
-
 All numbers are computed from the raw rows (aggregated over every
 repetition, never best-of); findings sentences are derived programmatically
 so the report cannot claim anything the data does not show. Missing or
@@ -47,13 +46,14 @@ def _device(row: dict) -> str:
     return dev or "cpu"
 
 
-def _load_sides(results_dir: Path, exp: str) -> dict[str, list[dict]]:
-    """STRICT per-experiment file list (never glob): ``exp{X}.jsonl`` first,
-    then the optional ``exp{X}_gpu.jsonl``; missing files are silently
-    skipped. Rows are split by their own device value — sides other than
-    ``cpu``/``cuda`` are keyed by the value itself."""
+def _load_sides(results_dir: Path, exp: str,
+                sfx: str = "") -> dict[str, list[dict]]:
+    """STRICT per-experiment file list (never glob): ``exp{X}{sfx}.jsonl``
+    first, then the optional ``exp{X}{sfx}_gpu.jsonl``; missing files are
+    silently skipped. Rows are split by their own device value — sides other
+    than ``cpu``/``cuda`` are keyed by the value itself."""
     sides: dict[str, list[dict]] = {}
-    for name in (f"exp{exp}.jsonl", f"exp{exp}_gpu.jsonl"):
+    for name in (f"exp{exp}{sfx}.jsonl", f"exp{exp}{sfx}_gpu.jsonl"):
         file = results_dir / name
         if not file.exists():
             continue
@@ -374,16 +374,18 @@ def _hyperparams(rows: list[dict]) -> list[str]:
             _table(["key", "value"], [[k, str(v)] for k, v in cfg.items()]), ""]
 
 
-def generate_report(results_dir: Path, out_path: Path) -> Path:
+def generate_report(results_dir: Path, out_path: Path,
+                    slug: str = "") -> Path:
     WARNINGS.clear()
+    sfx = f"_{slug}" if slug else ""
     sides_by_exp: dict[str, dict[str, list[dict]]] = {}
     rows: list[dict] = []                      # CPU side (drives findings etc.)
     other_rows: dict[str, list[dict]] = {}     # non-cpu sides, keyed by device
     for exp in ("A", "B", "C", "D"):
-        file = results_dir / f"exp{exp}.jsonl"
+        file = results_dir / f"exp{exp}{sfx}.jsonl"
         if not file.exists():
             _warn(f"{file.name} missing — section skipped")
-        sides = _load_sides(results_dir, exp)
+        sides = _load_sides(results_dir, exp, sfx)
         sides_by_exp[exp] = sides
         rows.extend(sides.get("cpu", []))
         for dev, dev_rows in sides.items():
@@ -415,35 +417,40 @@ def generate_report(results_dir: Path, out_path: Path) -> Path:
         "D": ("## Experiment D — PPO training protocol "
               "(fixed global rollout of 2048)"),
     }
+    tag = f" [{slug}]" if slug else ""
     for exp in ("A", "B", "C", "D"):
         sides = sides_by_exp[exp]
         gpu_sides = {d: rs for d, rs in sides.items() if d != "cpu"}
         # Existing CPU section first (byte-identical for CPU-only dirs).
-        if (results_dir / f"exp{exp}.jsonl").exists() and (
+        if (results_dir / f"exp{exp}{sfx}.jsonl").exists() and (
                 sides.get("cpu") or not gpu_sides):
             if exp == "A":
-                table, curves["A"] = _exp_a_table(sides.get("cpu", []))
+                table, curves["A"] = _exp_a_table(sides.get("cpu", []),
+                                                  suffix=sfx)
             elif exp == "B":
-                table, curves["B"] = _exp_b_table(sides.get("cpu", []))
+                table, curves["B"] = _exp_b_table(sides.get("cpu", []),
+                                                  suffix=sfx)
             else:
-                table, curves[exp] = _exp_ppo_table(sides.get("cpu", []), exp)
-            lines += [titles[exp], "", table, ""]
+                table, curves[exp] = _exp_ppo_table(sides.get("cpu", []), exp,
+                                                    suffix=sfx)
+            lines += [titles[exp] + tag, "", table, ""]
         # Sibling section(s) for every non-cpu side — same renderer, own
         # rows, `_gpu` figure infix; never mixed with the CPU statistics.
         for dev, dev_rows in gpu_sides.items():
             label = "GPU" if dev == "cuda" else dev
             lines += [
-                f"## Experiment {exp} — {label} (device={dev})", "",
+                f"## Experiment {exp} — {label} (device={dev})" + tag, "",
                 f"Rows recorded with device={dev}; every statistic in this "
                 "section is computed on this side only and never combined "
                 "with CPU rows.", "",
             ]
             if exp == "A":
-                table, _ = _exp_a_table(dev_rows, suffix="_gpu")
+                table, _ = _exp_a_table(dev_rows, suffix=f"{sfx}_gpu")
             elif exp == "B":
-                table, _ = _exp_b_table(dev_rows, suffix="_gpu")
+                table, _ = _exp_b_table(dev_rows, suffix=f"{sfx}_gpu")
             else:
-                table, _ = _exp_ppo_table(dev_rows, exp, suffix="_gpu")
+                table, _ = _exp_ppo_table(dev_rows, exp,
+                                          suffix=f"{sfx}_gpu")
             lines += [table, ""]
 
     lines += _findings(curves, rows)
@@ -465,10 +472,13 @@ def main(argv: list[str] | None = None) -> int:
                    default=str(REPO_ROOT / "benchmarks/scalability/results"))
     p.add_argument("--out", default=None,
                    help="output markdown (default: <results-dir>/REPORT.md)")
+    p.add_argument("--env-slug", default="",
+                   help="env slug used in result/figure filenames "
+                        "(default '': reads exp{X}.jsonl, unchanged)")
     args = p.parse_args(argv)
     results_dir = Path(args.results_dir)
     out = Path(args.out) if args.out else results_dir / "REPORT.md"
-    generate_report(results_dir, out)
+    generate_report(results_dir, out, slug=args.env_slug)
     return 0
 
 

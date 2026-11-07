@@ -1,5 +1,4 @@
 """Generate benchmark figures (PNG) from the result JSONL files.
-
 Every figure is derived from aggregated *all-repetition* statistics (mean ±
 std); nothing is hand-picked. Experiments with no result file (or a missing
 baseline point, e.g. while runs are still in flight) are skipped with a
@@ -238,31 +237,35 @@ def plot_ppo_experiment(rows, experiment: str, out_dir: Path,
     return paths
 
 
-def generate_all(results_dir: Path, out_dir: Path | None = None) -> list[Path]:
+def generate_all(results_dir: Path, out_dir: Path | None = None,
+                 slug: str = "") -> list[Path]:
     out_dir = out_dir or results_dir / "figures"
+    sfx = f"_{slug}" if slug else ""
     paths: list[Path] = []
     for exp, plotter in (
         ("A", plot_experiment_a),
         ("B", plot_experiment_b),
     ):
-        file = results_dir / f"exp{exp}.jsonl"
+        file = results_dir / f"exp{exp}{sfx}.jsonl"
         if not file.exists():
             warnings.warn(f"{file} missing — skipping exp {exp}")
         else:
-            paths.extend(plotter(load_flat(file), out_dir))
-        gpu_file = results_dir / f"exp{exp}_gpu.jsonl"   # silent when absent
+            paths.extend(plotter(load_flat(file), out_dir, suffix=sfx))
+        gpu_file = results_dir / f"exp{exp}{sfx}_gpu.jsonl"   # silent when absent
         if gpu_file.exists():
-            paths.extend(plotter(load_flat(gpu_file), out_dir, suffix="_gpu"))
+            paths.extend(plotter(load_flat(gpu_file), out_dir,
+                                 suffix=f"{sfx}_gpu"))
     for exp in ("C", "D"):
-        file = results_dir / f"exp{exp}.jsonl"
+        file = results_dir / f"exp{exp}{sfx}.jsonl"
         if not file.exists():
             warnings.warn(f"{file} missing — skipping exp {exp}")
         else:
-            paths.extend(plot_ppo_experiment(load_flat(file), exp, out_dir))
-        gpu_file = results_dir / f"exp{exp}_gpu.jsonl"   # silent when absent
+            paths.extend(plot_ppo_experiment(load_flat(file), exp, out_dir,
+                                             suffix=sfx))
+        gpu_file = results_dir / f"exp{exp}{sfx}_gpu.jsonl"   # silent when absent
         if gpu_file.exists():
             paths.extend(plot_ppo_experiment(load_flat(gpu_file), exp, out_dir,
-                                             suffix="_gpu"))
+                                             suffix=f"{sfx}_gpu"))
     return paths
 
 
@@ -272,10 +275,13 @@ def main(argv: list[str] | None = None) -> int:
                    default=str(REPO_ROOT / "benchmarks/scalability/results"))
     p.add_argument("--out", default=None,
                    help="figure output dir (default: <results-dir>/figures)")
+    p.add_argument("--env-slug", default="",
+                   help="env slug used in result/figure filenames "
+                        "(default '': reads exp{X}.jsonl, unchanged)")
     args = p.parse_args(argv)
     results_dir = Path(args.results_dir)
     out_dir = Path(args.out) if args.out else None
-    paths = generate_all(results_dir, out_dir)
+    paths = generate_all(results_dir, out_dir, slug=args.env_slug)
     if not paths:
         print("no figures generated (no result files found?)")
         return 1

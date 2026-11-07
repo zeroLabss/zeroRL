@@ -146,17 +146,19 @@ def _resources_table(ok: list[dict]) -> str:
     return _table(header, body)
 
 
-def _section_resources(results_dir: Path) -> list[str]:
+def _section_resources(results_dir: Path, slug: str = "") -> list[str]:
     """Table + telemetry notes for the resource-consumption campaign (R)."""
     from benchmarks.scalability.results_schema import load_rows
 
-    res_file = results_dir / "resources.jsonl"
+    sfx = f"_{slug}" if slug else ""
+    tag = f" [{slug}]" if slug else ""
+    res_file = results_dir / f"resources{sfx}.jsonl"
     if not res_file.exists():
         return []
     rows_all = load_rows(res_file)
     ok = [r for r in rows_all if r["status"] == "ok"]
     out = [
-        "## Resource consumption (experiment R)", "",
+        "## Resource consumption (experiment R)" + tag, "",
         "Fixed workloads, device CPU. CPU% = sum over the live process "
         "tree (multiprocess sums may exceed 100%); RSS summed across "
         "tree processes (shared pages may repeat — PSS/USS recorded in "
@@ -176,24 +178,26 @@ def _section_resources(results_dir: Path) -> list[str]:
     out += [
         f"- GPU telemetry: {'available (device-level only)' if gpu.get('available') else 'unavailable — ' + str(gpu.get('reason', ''))}.",
         f"- Energy: {'available — ' + str(energy.get('scope', '')) if energy.get('available') else 'unavailable — ' + str(energy.get('reason', ''))}.",
-        "- Raw per-run rows: `results/resources.jsonl` (validation runs "
+        f"- Raw per-run rows: `results/resources{sfx}.jsonl` (validation runs "
         "kept separately in `resources_validation.*`).", "",
     ]
     out += _memory_subsections(ok)
     return out
 
 
-def _section_resources_gpu(results_dir: Path) -> list[str]:
+def _section_resources_gpu(results_dir: Path, slug: str = "") -> list[str]:
     """Second side: optional GPU campaign rows (never mixed with CPU stats)."""
     from benchmarks.scalability.results_schema import load_rows
 
-    res_file = results_dir / "resources_gpu.jsonl"
+    sfx = f"_{slug}" if slug else ""
+    tag = f" [{slug}]" if slug else ""
+    res_file = results_dir / f"resources{sfx}_gpu.jsonl"
     if not res_file.exists():
         return []
     rows_all = load_rows(res_file)
     ok = [r for r in rows_all if r["status"] == "ok"]
     out = [
-        "## Resource consumption — GPU (device=cuda)", "",
+        "## Resource consumption — GPU (device=cuda)" + tag, "",
         "Fixed workloads, device GPU (row `device=cuda`). Every statistic "
         "below is computed from GPU rows only and never combined with the "
         "CPU side above. CPU% = sum over the live process tree; RSS summed "
@@ -213,17 +217,19 @@ def _section_resources_gpu(results_dir: Path) -> list[str]:
     out += [
         f"- GPU telemetry (device side cuda): {'available (device-level)' if gpu.get('available') else 'unavailable — ' + str(gpu.get('reason', ''))}.",
         f"- Energy (device side cuda): {'available — ' + str(energy.get('scope', '')) if energy.get('available') else 'unavailable — ' + str(energy.get('reason', ''))}.",
-        "- Raw per-run rows: `results/resources_gpu.jsonl`.", "",
+        f"- Raw per-run rows: `results/resources{sfx}_gpu.jsonl`.", "",
     ]
     out += _memory_subsections(ok)
     return out
 
 
-def generate_report(results_dir: Path, out_path: Path) -> Path:
-    body = _section_resources(results_dir)
-    gpu_body = _section_resources_gpu(results_dir)
+def generate_report(results_dir: Path, out_path: Path,
+                    slug: str = "") -> Path:
+    body = _section_resources(results_dir, slug)
+    gpu_body = _section_resources_gpu(results_dir, slug)
     if not body and not gpu_body:
-        body = ["## Resource consumption (experiment R)", "",
+        body = ["## Resource consumption (experiment R)"
+                + (f" [{slug}]" if slug else ""), "",
                 "_no ok rows yet._", ""]
     lines = [
         "# Resource-consumption benchmark report",
@@ -246,6 +252,9 @@ def build_parser() -> argparse.ArgumentParser:
                    default=str(REPO_ROOT / "benchmarks/resources/results"))
     p.add_argument("--out", default=None,
                    help="output markdown (default: <results-dir>/REPORT.md)")
+    p.add_argument("--env-slug", default="",
+                   help="env slug used in result filenames "
+                        "(default '': reads resources.jsonl, unchanged)")
     return p
 
 
@@ -253,7 +262,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     results_dir = Path(args.results_dir)
     out = Path(args.out) if args.out else results_dir / "REPORT.md"
-    generate_report(results_dir, out)
+    generate_report(results_dir, out, slug=args.env_slug)
     return 0
 
 

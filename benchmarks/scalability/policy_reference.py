@@ -19,8 +19,10 @@ different weights than the others.
 
 from __future__ import annotations
 
-from typing import Any
+from functools import lru_cache
+from typing import Any, NamedTuple
 
+import gymnasium as gym
 import numpy as np
 import torch
 import torch.nn as nn
@@ -46,15 +48,65 @@ REFERENCE_KEYS = (
 )
 
 
-def build_reference_state_dict(seed: int = REFERENCE_SEED) -> dict[str, torch.Tensor]:
+class EnvDims(NamedTuple):
+    """Space dimensions of one env, mirroring ``get_obs_act`` semantics.
+
+    ``obs_n`` is the flat observation size fed to the MLP (the space itself
+    for 3-D image observations, as ``get_obs_act`` returns); ``act_n`` is
+    the Discrete ``n`` or the product of the Box shape; ``act_shape`` is
+    ``()`` for Discrete.
+    """
+
+    obs_shape: tuple[int, ...]
+    act_shape: tuple[int, ...]
+    obs_n: Any
+    act_n: int
+    is_discrete: bool
+
+
+@lru_cache(maxsize=None)
+def env_dims(env_id: str) -> EnvDims:
+    """Probe an env's spaces (``gym.make`` -> read -> close); lru-cached.
+
+    Mirrors ``zerorl.functions.get_obs_act`` exactly:
+    discrete -> ``act_shape=()``, ``act_n=space.n``; Box -> ``act_shape=
+    space.shape``, ``act_n=int(np.prod(shape))``; ``obs_n = shape[-1]``
+    (or the space itself for 3-D image observations).
+    """
+    env = gym.make(env_id)
+    try:
+        obs_space = env.observation_space
+        act_space = env.action_space
+    finally:
+        env.close()
+    obs_shape = tuple(obs_space.shape)
+    act_shape = tuple(act_space.shape)
+    is_discrete = isinstance(act_space, gym.spaces.Discrete)
+    if is_discrete:
+        act_n = int(act_space.n)  # type: ignore[attr-defined]
+    else:
+        act_n = int(np.prod(act_space.shape))  # type: ignore[arg-type]
+    obs_n: Any = obs_space if len(obs_shape) == 3 else obs_shape[-1]
+    return EnvDims(obs_shape, act_shape, obs_n, act_n, is_discrete)
+
+
+def build_reference_state_dict(seed: int = REFERENCE_SEED, *,
+                               obs_dim: int = OBS_DIM,
+                               act_dim: int = ACT_DIM,
+                               is_discrete: bool = True,
+                               ) -> dict[str, torch.Tensor]:
     """Deterministic reference weights via zeroRL's own agent init.
 
     Uses ``ActorCriticAgent`` so the init scheme (ortho gains √2 trunk /
     0.01 actor / 1.0 critic, zero biases) and key layout are exactly zeroRL's
     defaults — the other frameworks map these tensors onto their modules.
+    The default (LunarLander-shaped, discrete) call is byte-identical to the
+    original signature. Continuous agents additionally carry a ``log_std``
+    key (extra keys are allowed; REFERENCE_KEYS are only the required ones).
     """
     torch.manual_seed(seed)
-    agent = ActorCriticAgent(OBS_DIM, ACT_DIM, is_discrete=True, hidden_dim=HIDDEN)
+    agent = ActorCriticAgent(obs_dim, act_dim, is_discrete=is_discrete,
+                             hidden_dim=HIDDEN)
     sd = {k: v.detach().clone() for k, v in agent.state_dict().items()}
     missing = [k for k in REFERENCE_KEYS if k not in sd]
     if missing:
@@ -94,10 +146,13 @@ class DeterministicActorCriticAgent(ActorCriticAgent):
                    **kwargs: Any) -> dict[str, torch.Tensor]:
         logits, value = self.forward(state, **kwargs)
         dist = self.build_distribution(logits)
-        greedy = logits.argmax(dim=-1)
-        log_prob, entropy = eval_action(dist, greedy)
+        if self.is_discrete:
+            taken = logits.argmax(dim=-1)
+        else:
+            taken = logits    # Normal mode = mean (deterministic)
+        log_prob, entropy = eval_action(dist, taken)
         return {
-            "action": greedy,
+            "action": taken,
             "log_prob": log_prob,
             "entropy": entropy,
             "value": value.squeeze(-1),
@@ -106,10 +161,19 @@ class DeterministicActorCriticAgent(ActorCriticAgent):
 
 def build_deterministic_zerorl_agent(
     sd: dict[str, torch.Tensor] | None = None,
+    *,
+    obs_dim: int = OBS_DIM,
+    act_dim: int = ACT_DIM,
+    is_discrete: bool = True,
 ) -> DeterministicActorCriticAgent:
-    agent = DeterministicActorCriticAgent(OBS_DIM, ACT_DIM, is_discrete=True,
+    agent = DeterministicActorCriticAgent(obs_dim, act_dim,
+                                          is_discrete=is_discrete,
                                           hidden_dim=HIDDEN)
-    load_into_zerorl(agent, sd if sd is not None else build_reference_state_dict())
+    load_into_zerorl(
+        agent,
+        sd if sd is not None else build_reference_state_dict(
+            obs_dim=obs_dim, act_dim=act_dim, is_discrete=is_discrete),
+    )
     return agent
 
 
@@ -248,12 +312,40 @@ def load_into_sb3(policy: nn.Module, sd: dict[str, torch.Tensor]) -> None:
         "critic.weight": policy.value_net.weight,   # type: ignore[attr-defined]
         "critic.bias": policy.value_net.bias,
     }
+    if "log_std" in sd:
+        # Box policies own a separate Gaussian log_std Parameter
+        # (sb3 policies.py: `self.action_net, self.log_std = ...proba_distribution_net`)
+        if not hasattr(policy, "log_std"):
+            raise AssertionError(
+                "reference sd carries log_std (continuous) but the SB3 "
+                "policy has no log_std parameter (not a Box policy?)")
+        with torch.no_grad():
+            policy.log_std.copy_(sd["log_std"])   # type: ignore[attr-defined]
+        read_back["log_std"] = policy.log_std     # type: ignore[attr-defined]
     _assert_equal(read_back, sd, "SB3 policy")
 
 
 # ---------------------------------------------------------------------------
 # TorchRL adapter
 # ---------------------------------------------------------------------------
+
+class _TrunkSequential(nn.Sequential):
+    """Shared trunk that EXECUTES in float32.
+
+    zeroRL casts observations to float32 at reset (``trainer.state =
+    torch.as_tensor(..., dtype=torch.float32)``) and SB3 casts in its
+    obs-to-tensor path; gymnasium MuJoCo envs (e.g. HumanoidStandup-v4)
+    emit float64 observations, so the TorchRL path — which feeds raw env
+    tensors into the policy — casts at the trunk boundary to keep policy
+    execution dtype-identical across frameworks. No-op for float32 inputs
+    (e.g. LunarLander), so the discrete path is numerically unchanged.
+    """
+
+    def forward(self, input: torch.Tensor) -> torch.Tensor:  # noqa: A002
+        if input.dtype != torch.float32:
+            input = input.to(torch.float32)  # noqa: A001
+        return super().forward(input)
+
 
 class TorchRLSharedTrunk(nn.Module):
     """Shared 64-64 Tanh trunk + actor/critic heads (zeroRL topology).
@@ -263,17 +355,40 @@ class TorchRLSharedTrunk(nn.Module):
     ``parameters()`` — matching zeroRL's single-shared-trunk agent exactly.
     """
 
-    def __init__(self, sd: dict[str, torch.Tensor] | None = None) -> None:
+    def __init__(self, sd: dict[str, torch.Tensor] | None = None, *,
+                 obs_dim: int = OBS_DIM, act_dim: int = ACT_DIM) -> None:
         super().__init__()
-        self.trunk = nn.Sequential(
-            nn.Linear(OBS_DIM, HIDDEN),
+        self.trunk = _TrunkSequential(
+            nn.Linear(obs_dim, HIDDEN),
             nn.Tanh(),
             nn.Linear(HIDDEN, HIDDEN),
             nn.Tanh(),
         )
-        self.actor_head = nn.Linear(HIDDEN, ACT_DIM)
+        self.actor_head = nn.Linear(HIDDEN, act_dim)
         self.critic_head = nn.Linear(HIDDEN, 1)
-        sd = sd if sd is not None else build_reference_state_dict()
+        sd = sd if sd is not None else build_reference_state_dict(
+            obs_dim=obs_dim, act_dim=act_dim)
+        # clear failure (not a raw copy_ RuntimeError) on a dims mismatch
+        if (tuple(sd["actor.weight"].shape) != (act_dim, HIDDEN)
+                or tuple(sd["extract_layer.0.weight"].shape) != (HIDDEN, obs_dim)):
+            raise ValueError(
+                f"TorchRLSharedTrunk dims mismatch: obs_dim={obs_dim}, "
+                f"act_dim={act_dim} require actor.weight "
+                f"{(act_dim, HIDDEN)} and extract_layer.0.weight "
+                f"{(HIDDEN, obs_dim)}, got "
+                f"{tuple(sd['actor.weight'].shape)} and "
+                f"{tuple(sd['extract_layer.0.weight'].shape)}"
+            )
+        if "log_std" in sd:
+            # continuous policy std: TRAINABLE (zeroRL optimizes it; picked
+            # up by parameters()/_dedup_params) and shape-checked vs dims
+            if tuple(sd["log_std"].shape) != (act_dim,):
+                raise ValueError(
+                    f"TorchRLSharedTrunk dims mismatch: act_dim={act_dim} "
+                    f"requires log_std shape {(act_dim,)}, got "
+                    f"{tuple(sd['log_std'].shape)}"
+                )
+            self.log_std = nn.Parameter(sd["log_std"].clone())
         with torch.no_grad():
             self.trunk[0].weight.copy_(sd["extract_layer.0.weight"])
             self.trunk[0].bias.copy_(sd["extract_layer.0.bias"])

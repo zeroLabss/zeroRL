@@ -6,12 +6,13 @@ Provides convenience functions that wire together common RL components.
 import numpy as np
 import torch
 from typing import Callable
+from torch import nn
 from torch import Tensor
 from zerorl.functions import vectorize_env 
 from zerorl.helpers.agent import BaseAgent, eval_action
 from zerorl.helpers.env import BaseEnv
 from zerorl.buffer import Buffer 
-from torch import nn
+from zerorl.helpers.encoder import ObservationEncoder
 
 
 def get_env(env_id: str | Callable | BaseEnv, num_envs: int = 1, render_mode: str | None= None):
@@ -117,7 +118,7 @@ class ActorCriticAgent(BaseAgent):
         is_discrete: Whether the action space is discrete.
         hidden_dim: Hidden layer size (default 64).
     """
-    def __init__(self, input_dim: int, output_dim: int, is_discrete: bool, hidden_dim: int = 64):
+    def __init__(self, input_dim: tuple[int, ...] | int, output_dim: int, is_discrete: bool, hidden_dim: int = 64):
         super().__init__()
 
         self.is_discrete = is_discrete
@@ -125,9 +126,13 @@ class ActorCriticAgent(BaseAgent):
         self.input_dim = input_dim
         self.output_dim = output_dim
 
+        # CNN Encoder
+        self.encoder = ObservationEncoder(self.input_dim)
+        self.encoder_dim = self.encoder.output_dim
+
         # Feature Extractor
         self.extract_layer = nn.Sequential(
-                nn.Linear(self.input_dim, self.hidden_dim),
+                nn.Linear(self.encoder_dim, self.hidden_dim),
                 nn.Tanh(),
                 nn.Linear(self.hidden_dim, self.hidden_dim),
                 nn.Tanh())
@@ -142,14 +147,19 @@ class ActorCriticAgent(BaseAgent):
         self._orthogonal_init()
 
 
-    def _init_layer(self, layer: nn.Linear, gain: float):
+    def _init_layer(self, layer: nn.Linear | nn.Conv2d, gain: float):
         nn.init.orthogonal_(layer.weight, gain=gain)
         if layer.bias is not None: nn.init.constant_(layer.bias, 0.0)
 
     def _orthogonal_init(self):
         """Apply orthogonal weight initialization with gain based on layer role."""
-        # Hidden layers
-        for layer in self.extract_layer:
+        # CNN layers
+        for layer in self.encoder.features.modules():
+            if isinstance(layer, nn.Conv2d):
+                self._init_layer(layer, gain=np.sqrt(2))
+
+        # Extract layers
+        for layer in self.extract_layer.modules():
             if isinstance(layer, nn.Linear):
                 self._init_layer(layer, gain=np.sqrt(2))
         # Actor output
@@ -159,7 +169,8 @@ class ActorCriticAgent(BaseAgent):
 
     def forward(self, state: Tensor):
         """Forward pass returning (logits, value)."""
-        x = self.extract_layer(state)
+        x = self.encoder(state)
+        x = self.extract_layer(x)
         logits = self.actor(x)
         value = self.critic(x)
         return (logits, value)
@@ -200,10 +211,14 @@ class PolicyAgent(BaseAgent):
         self.hidden_dim = hidden_dim
         self.input_dim = input_dim
         self.output_dim = output_dim
+
+        # CNN Encoder
+        self.encoder = ObservationEncoder(self.input_dim)
+        self.encoder_dim = self.encoder.output_dim
         
         # Feature Extractor
         self.extract_layer = nn.Sequential(
-                nn.Linear(self.input_dim, self.hidden_dim),
+                nn.Linear(self.encoder_dim, self.hidden_dim),
                 nn.Tanh(),
                 nn.Linear(self.hidden_dim, self.hidden_dim),
                 nn.Tanh()
@@ -223,7 +238,7 @@ class PolicyAgent(BaseAgent):
 
     def _orthogonal_init(self):
         """Apply orthogonal weight initialization with gain based on layer role."""
-        # Hidden layers
+        # Extractor layers
         for layer in self.extract_layer:
             if isinstance(layer, nn.Linear):
                 self._init_layer(layer, gain=np.sqrt(2))
@@ -232,7 +247,8 @@ class PolicyAgent(BaseAgent):
 
     def forward(self, state: Tensor):
         """Forward pass returning logits."""
-        x = self.extract_layer(state)
+        x = self.encoder(state)
+        x = self.extract_layer(x)
         logits = self.actor(x)
         return logits
 

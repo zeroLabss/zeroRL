@@ -363,7 +363,6 @@ def _dedup_params(*modules: torch.nn.Module) -> list[torch.nn.Parameter]:
                 out.append(p)
     return out
 
-
 class SummedNormal(torch.distributions.Normal):
     """Normal with log_prob/entropy summed over the action dim.
 
@@ -380,6 +379,15 @@ class SummedNormal(torch.distributions.Normal):
     def entropy(self) -> torch.Tensor:
         return super().entropy().sum(dim=-1)
 
+    @property
+    def deterministic_sample(self) -> torch.Tensor:
+        """Gaussian mode == mean: torchrl's deterministic-action API.
+
+        Provides the attribute SafeProbabilisticModule looks up so it takes
+        its fast path instead of warning about a mean fallback — the value
+        is identical either way (for a Normal, the mode is the mean).
+        """
+        return self.mean
 
 class _MeanScaleHead(torch.nn.Module):
     """Continuous PPO actor params: mean from the shared actor head, scale

@@ -1,6 +1,6 @@
 """Utility functions for RL training.
 
-Provides vectorize_env() for environment wrapping, env_step() for
+Provides vectorize_env() for environment wrapping, env_step() forfunc
 agent-env interaction, and helpers for state processing, seeding,
 and action conversion.
 """
@@ -312,10 +312,8 @@ def get_obs_act(env: SyncVectorEnv) -> Any:
     else:
         act_n = int(np.prod(act_dim.shape)) #type: ignore
 
-    if len(obs_dim.shape) == 3: #type: ignore
-        obs_n = obs_dim
-    else:
-        obs_n = obs_dim.shape[-1] #type: ignore
+    obs_n = obs_dim.shape
+
     return (obs_dim.shape, act_dim.shape, obs_n, act_n, is_discrete)
 
 def actions_limits(env: SyncVectorEnv, agent: BaseAgent) -> tuple[Any, Any] | None:

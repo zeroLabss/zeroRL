@@ -1,5 +1,4 @@
 """Generate benchmark figures (PNG) from the result JSONL files.
-
 Every figure is derived from aggregated *all-repetition* statistics (mean ±
 std); nothing is hand-picked. Experiments with no result file (or a missing
 baseline point, e.g. while runs are still in flight) are skipped with a

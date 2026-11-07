@@ -1,6 +1,6 @@
 # Scalability benchmark report
 
-Generated: 2026-11-05T12:41:52.117437+00:00 · rows: 601 · figures in `figures/`
+Generated: 2026-11-07T19:17:21.500812+00:00 · rows: 425 · figures in `figures/`
 
 ## Environment
 
@@ -18,7 +18,7 @@ Generated: 2026-11-05T12:41:52.117437+00:00 · rows: 601 · figures in `figures/
 | sb3 | 2.9.0 |
 | torchrl | 0.14.1 |
 | tensordict | 0.14.3 |
-| git_sha | 8eb6392d7b63993aa0108ea1a6d24946bc28df8f |
+| git_sha | 7813ea3a3711cfbcf6592ef8af5bb05b04fb4dc4 |
 
 ## Methodology (summary)
 
@@ -29,73 +29,44 @@ Generated: 2026-11-05T12:41:52.117437+00:00 · rows: 601 · figures in `figures/
 - Phase timing: `init` = env + policy construction + weight load (+ TorchRL collector/worker spawn); `warmup` (A/B only, excluded); `boundary` (A/B only) = warmup→measure phase reset / collector-worker restart, timed as `boundary_seconds`; `measure` = the official training/collection steady state. Full framework-specific details in `INSPECTION.md`.
 - Device: CPU (`CUDA_VISIBLE_DEVICES=""`); protocol C/D hyperparameters in `ppo_protocols.py` (lr 3e-4 linear-decay, gamma .99, gae_lambda .95, clip .2, entropy .01, value .5, epochs 10, batch 64, grad-clip .5).
 
-## Experiment A — environment scaling (collection)
+## Experiment A — environment scaling (collection) [humanoidstandupv5]
 
 | framework | N | throughput (trans/s) | mean time (s) | speedup (paired) | env-scaling efficiency (paired) | pairs (n) |
 | --- | --- | --- | --- | --- | --- | --- |
-| zeroRL | 1 | 1,657.0 ± 15.6 | 60.35 | 1.00 | 1.00 | 5 |
-| zeroRL | 2 | 2,415.7 ± 38.8 | 41.41 | 1.46 ± 0.02 | 0.73 ± 0.01 | 5 |
-| zeroRL | 4 | 4,582.0 ± 47.1 | 21.83 | 2.75 ± 0.05 | 0.69 ± 0.01 | 5 |
-| zeroRL | 8 | 4,755.4 ± 40.3 | 21.03 | 2.86 ± 0.03 | 0.36 ± 0.00 | 5 |
-| zeroRL | 16 | 8,175.7 ± 127.6 | 12.23 | 4.93 ± 0.05 | 0.31 ± 0.00 | 5 |
-| SB3 | 1 | 1,593.6 ± 10.5 | 62.75 | 1.00 | 1.00 | 5 |
-| SB3 | 2 | 2,448.9 ± 18.0 | 40.84 | 1.54 ± 0.01 | 0.77 ± 0.01 | 5 |
-| SB3 | 4 | 4,577.4 ± 62.5 | 21.85 | 2.85 ± 0.05 | 0.71 ± 0.01 | 5 |
-| SB3 | 8 | 4,712.2 ± 29.3 | 21.22 | 2.96 ± 0.03 | 0.37 ± 0.00 | 5 |
-| SB3 | 16 | 7,991.2 ± 124.6 | 12.52 | 5.02 ± 0.13 | 0.31 ± 0.01 | 5 |
-| TorchRL | 1 | 826.2 ± 23.6 | 121.13 | 1.00 | 1.00 | 5 |
-| TorchRL | 2 | 1,307.2 ± 73.6 | 76.72 | 1.53 ± 0.06 | 0.76 ± 0.03 | 5 |
-| TorchRL | 4 | 2,382.4 ± 125.0 | 42.08 | 2.79 ± 0.10 | 0.70 ± 0.02 | 5 |
-| TorchRL | 8 | 3,375.6 ± 98.6 | 29.65 | 4.05 ± 0.11 | 0.51 ± 0.01 | 5 |
-| TorchRL | 16 | 5,785.2 ± 193.1 | 17.30 | 6.94 ± 0.36 | 0.43 ± 0.02 | 5 |
+| zeroRL | 1 | 605.0 ± 11.0 | 165.33 | 1.00 | 1.00 | 5 |
+| zeroRL | 2 | 806.7 ± 31.4 | 124.14 | 1.36 ± 0.01 | 0.68 ± 0.01 | 5 |
+| zeroRL | 4 | 1,074.0 ± 32.2 | 93.19 | 1.79 ± 0.01 | 0.45 ± 0.00 | 5 |
+| zeroRL | 8 | 1,136.9 ± 38.2 | 88.06 | 1.91 ± 0.02 | 0.24 ± 0.00 | 5 |
+| zeroRL | 16 | 1,329.3 ± 33.9 | 75.28 | 2.21 ± 0.01 | 0.14 ± 0.00 | 5 |
+| SB3 | 1 | 618.6 ± 10.1 | 161.71 | 1.00 | 1.00 | 5 |
+| SB3 | 2 | 791.7 ± 34.1 | 126.52 | 1.33 ± 0.01 | 0.66 ± 0.00 | 5 |
+| SB3 | 4 | 1,059.2 ± 29.9 | 94.48 | 1.74 ± 0.01 | 0.44 ± 0.00 | 5 |
+| SB3 | 8 | 1,116.7 ± 41.6 | 89.67 | 1.86 ± 0.01 | 0.23 ± 0.00 | 5 |
+| SB3 | 16 | 1,304.4 ± 33.7 | 76.71 | 2.14 ± 0.01 | 0.13 ± 0.00 | 5 |
+| TorchRL | 1 | 369.2 ± 14.1 | 271.25 | 1.00 | 1.00 | 5 |
+| TorchRL | 2 | 590.6 ± 19.1 | 169.50 | 1.59 ± 0.01 | 0.79 ± 0.01 | 5 |
+| TorchRL | 4 | 864.7 ± 22.6 | 115.72 | 2.31 ± 0.02 | 0.58 ± 0.00 | 5 |
+| TorchRL | 8 | 995.2 ± 38.1 | 100.61 | 2.66 ± 0.02 | 0.33 ± 0.00 | 5 |
+| TorchRL | 16 | 1,221.5 ± 32.6 | 81.92 | 3.23 ± 0.02 | 0.20 ± 0.00 | 5 |
 
-![throughput](figures/expA_throughput.png)
+![throughput](figures/expA_humanoidstandupv5_throughput.png)
 
-![speedup](figures/expA_speedup.png)
+![speedup](figures/expA_humanoidstandupv5_speedup.png)
 
-![efficiency](figures/expA_efficiency.png)
-
-
-## Experiment A — GPU (device=cuda)
-
-Rows recorded with device=cuda; every statistic in this section is computed on this side only and never combined with CPU rows.
-
-| framework | N | throughput (trans/s) | mean time (s) | speedup (paired) | env-scaling efficiency (paired) | pairs (n) |
-| --- | --- | --- | --- | --- | --- | --- |
-| zeroRL | 1 | 1,084.8 ± 30.7 | 92.25 | 1.00 | 1.00 | 5 |
-| zeroRL | 2 | 2,031.1 ± 37.8 | 49.25 | 1.85 ± 0.05 | 0.93 ± 0.02 | 5 |
-| zeroRL | 4 | 3,752.1 ± 114.4 | 26.68 | 3.42 ± 0.07 | 0.86 ± 0.02 | 5 |
-| zeroRL | 8 | 6,132.1 ± 209.2 | 16.33 | 5.62 ± 0.24 | 0.70 ± 0.03 | 5 |
-| zeroRL | 16 | 10,055.8 ± 364.0 | 9.96 | 9.17 ± 0.29 | 0.57 ± 0.02 | 5 |
-| SB3 | 1 | 1,301.8 ± 31.2 | 76.86 | 1.00 | 1.00 | 5 |
-| SB3 | 2 | 2,458.5 ± 49.7 | 40.69 | 1.87 ± 0.04 | 0.93 ± 0.02 | 5 |
-| SB3 | 4 | 4,491.4 ± 116.8 | 22.28 | 3.51 ± 0.08 | 0.88 ± 0.02 | 5 |
-| SB3 | 8 | 7,658.3 ± 298.3 | 13.08 | 5.93 ± 0.20 | 0.74 ± 0.02 | 5 |
-| SB3 | 16 | 12,179.2 ± 339.5 | 8.22 | 9.24 ± 0.39 | 0.58 ± 0.02 | 5 |
-| TorchRL | 1 | 643.8 ± 15.5 | 155.42 | 1.00 | 1.00 | 5 |
-| TorchRL | 2 | 1,245.6 ± 7.2 | 80.28 | 1.94 ± 0.05 | 0.97 ± 0.03 | 5 |
-| TorchRL | 4 | 2,270.8 ± 56.6 | 44.06 | 3.55 ± 0.08 | 0.89 ± 0.02 | 5 |
-| TorchRL | 8 | 4,015.5 ± 190.4 | 24.96 | 6.07 ± 0.44 | 0.76 ± 0.06 | 5 |
-| TorchRL | 16 | 6,809.0 ± 204.9 | 14.70 | 10.39 ± 0.44 | 0.65 ± 0.03 | 5 |
-
-![throughput](figures/expA_gpu_throughput.png)
-
-![speedup](figures/expA_gpu_speedup.png)
-
-![efficiency](figures/expA_gpu_efficiency.png)
+![efficiency](figures/expA_humanoidstandupv5_efficiency.png)
 
 
-## Experiment B — worker scaling (collection, N=8)
+## Experiment B — worker scaling (collection, N=8) [humanoidstandupv5]
 
 | framework | W | throughput (trans/s) | mean time (s) | speedup (paired) | worker parallel efficiency (paired) | pairs (n) |
 | --- | --- | --- | --- | --- | --- | --- |
-| zeroRL | 1 | 4,474.1 ± 20.8 | 22.35 | 1.00 | 1.00 | 5 |
-| SB3 | 1 | 4,472.1 ± 38.7 | 22.36 | 1.00 | 1.00 | 5 |
-| SB3 | 8 | 3,966.0 ± 59.4 | 25.22 | 0.89 ± 0.02 | 0.11 ± 0.00 | 5 |
-| TorchRL | 1 | 3,308.5 ± 8.5 | 30.23 | 1.00 | 1.00 | 5 |
-| TorchRL | 2 | 7,332.2 ± 273.1 | 13.65 | 2.22 ± 0.08 | 1.11 ± 0.04 | 5 |
-| TorchRL | 4 | 7,842.2 ± 69.0 | 12.75 | 2.37 ± 0.02 | 0.59 ± 0.01 | 5 |
-| TorchRL | 8 | 8,452.6 ± 104.3 | 11.83 | 2.55 ± 0.04 | 0.32 ± 0.00 | 5 |
+| zeroRL | 1 | 1,159.6 ± 6.7 | 86.24 | 1.00 | 1.00 | 5 |
+| SB3 | 1 | 1,167.6 ± 3.3 | 85.65 | 1.00 | 1.00 | 5 |
+| SB3 | 8 | 2,259.8 ± 57.7 | 44.28 | 1.97 ± 0.04 | 0.25 ± 0.01 | 5 |
+| TorchRL | 1 | 1,030.9 ± 3.2 | 97.01 | 1.00 | 1.00 | 5 |
+| TorchRL | 2 | 2,101.8 ± 20.2 | 47.58 | 2.04 ± 0.02 | 1.02 ± 0.01 | 5 |
+| TorchRL | 4 | 3,036.2 ± 24.0 | 32.94 | 2.94 ± 0.02 | 0.73 ± 0.00 | 5 |
+| TorchRL | 8 | 3,983.5 ± 25.7 | 25.10 | 3.87 ± 0.03 | 0.48 ± 0.00 | 5 |
 
 **Unsupported (recorded, not run)**:
 
@@ -124,158 +95,105 @@ Rows recorded with device=cuda; every statistic in this section is computed on t
 - SB3 W=4: SB3 SubprocVecEnv runs exactly one process per env, so only W=1 (DummyVecEnv) and W=8 (SubprocVecEnv) exist; W=4 unsupported
 - SB3 W=4: SB3 SubprocVecEnv runs exactly one process per env, so only W=1 (DummyVecEnv) and W=8 (SubprocVecEnv) exist; W=4 unsupported
 - SB3 W=4: SB3 SubprocVecEnv runs exactly one process per env, so only W=1 (DummyVecEnv) and W=8 (SubprocVecEnv) exist; W=4 unsupported
+- zeroRL W=2: zeroRL has no multi-process environment path (vectorize_env -> SyncVectorEnv only); W>=2 unsupported
+- zeroRL W=2: zeroRL has no multi-process environment path (vectorize_env -> SyncVectorEnv only); W>=2 unsupported
+- zeroRL W=2: zeroRL has no multi-process environment path (vectorize_env -> SyncVectorEnv only); W>=2 unsupported
+- zeroRL W=2: zeroRL has no multi-process environment path (vectorize_env -> SyncVectorEnv only); W>=2 unsupported
+- zeroRL W=2: zeroRL has no multi-process environment path (vectorize_env -> SyncVectorEnv only); W>=2 unsupported
+- zeroRL W=4: zeroRL has no multi-process environment path (vectorize_env -> SyncVectorEnv only); W>=2 unsupported
+- zeroRL W=4: zeroRL has no multi-process environment path (vectorize_env -> SyncVectorEnv only); W>=2 unsupported
+- zeroRL W=4: zeroRL has no multi-process environment path (vectorize_env -> SyncVectorEnv only); W>=2 unsupported
+- zeroRL W=4: zeroRL has no multi-process environment path (vectorize_env -> SyncVectorEnv only); W>=2 unsupported
+- zeroRL W=4: zeroRL has no multi-process environment path (vectorize_env -> SyncVectorEnv only); W>=2 unsupported
+- zeroRL W=8: zeroRL has no multi-process environment path (vectorize_env -> SyncVectorEnv only); W>=2 unsupported
+- zeroRL W=8: zeroRL has no multi-process environment path (vectorize_env -> SyncVectorEnv only); W>=2 unsupported
+- zeroRL W=8: zeroRL has no multi-process environment path (vectorize_env -> SyncVectorEnv only); W>=2 unsupported
+- zeroRL W=8: zeroRL has no multi-process environment path (vectorize_env -> SyncVectorEnv only); W>=2 unsupported
+- zeroRL W=8: zeroRL has no multi-process environment path (vectorize_env -> SyncVectorEnv only); W>=2 unsupported
+- SB3 W=2: SB3 SubprocVecEnv runs exactly one process per env, so only W=1 (DummyVecEnv) and W=8 (SubprocVecEnv) exist; W=2 unsupported
+- SB3 W=2: SB3 SubprocVecEnv runs exactly one process per env, so only W=1 (DummyVecEnv) and W=8 (SubprocVecEnv) exist; W=2 unsupported
+- SB3 W=2: SB3 SubprocVecEnv runs exactly one process per env, so only W=1 (DummyVecEnv) and W=8 (SubprocVecEnv) exist; W=2 unsupported
+- SB3 W=2: SB3 SubprocVecEnv runs exactly one process per env, so only W=1 (DummyVecEnv) and W=8 (SubprocVecEnv) exist; W=2 unsupported
+- SB3 W=2: SB3 SubprocVecEnv runs exactly one process per env, so only W=1 (DummyVecEnv) and W=8 (SubprocVecEnv) exist; W=2 unsupported
+- SB3 W=4: SB3 SubprocVecEnv runs exactly one process per env, so only W=1 (DummyVecEnv) and W=8 (SubprocVecEnv) exist; W=4 unsupported
+- SB3 W=4: SB3 SubprocVecEnv runs exactly one process per env, so only W=1 (DummyVecEnv) and W=8 (SubprocVecEnv) exist; W=4 unsupported
+- SB3 W=4: SB3 SubprocVecEnv runs exactly one process per env, so only W=1 (DummyVecEnv) and W=8 (SubprocVecEnv) exist; W=4 unsupported
+- SB3 W=4: SB3 SubprocVecEnv runs exactly one process per env, so only W=1 (DummyVecEnv) and W=8 (SubprocVecEnv) exist; W=4 unsupported
+- SB3 W=4: SB3 SubprocVecEnv runs exactly one process per env, so only W=1 (DummyVecEnv) and W=8 (SubprocVecEnv) exist; W=4 unsupported
 
-![throughput](figures/expB_throughput.png)
+![throughput](figures/expB_humanoidstandupv5_throughput.png)
 
-![speedup](figures/expB_speedup.png)
+![speedup](figures/expB_humanoidstandupv5_speedup.png)
 
-![efficiency](figures/expB_efficiency.png)
+![efficiency](figures/expB_humanoidstandupv5_efficiency.png)
 
 
-## Experiment C — PPO training protocol (fixed 2048 steps/env per rollout)
+## Experiment C — PPO training protocol (fixed 2048 steps/env per rollout) [humanoidstandupv5]
 
 | framework | N | updates | throughput (trans/s) | mean time (s) | mean return (last 100) | reps |
 | --- | --- | --- | --- | --- | --- | --- |
-| zeroRL | 1 | 128 | 766.1 ± 4.5 | 342.2 | -156.4 ± 102.0 | 3 |
-| zeroRL | 2 | 64 | 967.9 ± 18.2 | 270.9 | -133.3 ± 90.1 | 3 |
-| zeroRL | 4 | 32 | 1,274.8 ± 8.4 | 205.6 | -104.6 ± 26.3 | 3 |
-| zeroRL | 8 | 16 | 1,283.2 ± 5.5 | 204.3 | -25.3 ± 16.3 | 3 |
-| zeroRL | 16 | 8 | 1,453.1 ± 5.5 | 180.4 | -44.6 ± 15.7 | 3 |
-| SB3 | 1 | 128 | 723.5 ± 2.6 | 362.3 | -155.6 ± 44.8 | 3 |
-| SB3 | 2 | 64 | 877.0 ± 0.8 | 298.9 | -107.0 ± 44.6 | 3 |
-| SB3 | 4 | 32 | 1,056.8 ± 4.6 | 248.1 | -104.9 ± 16.5 | 3 |
-| SB3 | 8 | 16 | 1,065.9 ± 3.0 | 245.9 | -45.9 ± 9.6 | 3 |
-| SB3 | 16 | 8 | 1,186.6 ± 2.6 | 220.9 | -83.8 ± 17.8 | 3 |
-| TorchRL | 1 | 128 | 424.2 ± 3.0 | 618.0 | -116.9 ± 49.3 | 3 |
-| TorchRL | 2 | 64 | 536.6 ± 2.3 | 488.6 | -107.9 ± 46.7 | 3 |
-| TorchRL | 4 | 32 | 689.6 ± 2.1 | 380.1 | 0.2 ± 79.1 | 3 |
-| TorchRL | 8 | 16 | 780.2 ± 1.0 | 336.0 | -60.1 ± 27.6 | 3 |
-| TorchRL | 16 | 8 | 861.9 ± 3.9 | 304.2 | -47.0 ± 2.1 | 3 |
+| zeroRL | 1 | 128 | 428.1 ± 2.5 | 612.4 | 75,253.6 ± 5,108.2 | 6 |
+| zeroRL | 2 | 64 | 536.7 ± 4.2 | 488.4 | 75,079.7 ± 3,892.0 | 6 |
+| zeroRL | 4 | 32 | 650.7 ± 5.7 | 402.9 | 64,966.9 ± 4,545.7 | 6 |
+| zeroRL | 8 | 16 | 687.6 ± 7.3 | 381.3 | 57,229.6 ± 1,909.4 | 6 |
+| zeroRL | 16 | 8 | 762.7 ± 4.1 | 343.7 | 47,649.0 ± 799.5 | 6 |
+| SB3 | 1 | 128 | 418.7 ± 8.6 | 626.3 | 80,410.9 ± 2,362.9 | 6 |
+| SB3 | 2 | 64 | 526.3 ± 5.7 | 498.2 | 73,775.3 ± 2,866.8 | 6 |
+| SB3 | 4 | 32 | 627.7 ± 5.9 | 417.6 | 70,151.9 ± 1,711.2 | 6 |
+| SB3 | 8 | 16 | 655.1 ± 6.0 | 400.2 | 62,676.0 ± 2,365.7 | 6 |
+| SB3 | 16 | 8 | 721.4 ± 3.4 | 363.4 | 50,308.9 ± 2,015.7 | 6 |
+| TorchRL | 1 | 128 | 264.9 ± 2.9 | 989.6 | 72,593.4 ± 2,624.9 | 6 |
+| TorchRL | 2 | 64 | 365.5 ± 3.4 | 717.3 | 73,504.3 ± 3,083.8 | 6 |
+| TorchRL | 4 | 32 | 460.4 ± 4.5 | 569.4 | 67,696.1 ± 2,503.8 | 6 |
+| TorchRL | 8 | 16 | 503.9 ± 4.2 | 520.3 | 64,621.7 ± 824.4 | 6 |
+| TorchRL | 16 | 8 | 560.1 ± 4.2 | 468.1 | 48,612.7 ± 1,557.2 | 6 |
 
-![throughput](figures/expC_throughput.png)
+![throughput](figures/expC_humanoidstandupv5_throughput.png)
 
-![returns](figures/expC_returns.png)
-
-
-## Experiment D — PPO training protocol (fixed global rollout of 2048)
-
-| framework | N | updates | throughput (trans/s) | mean time (s) | mean return (last 100) | reps |
-| --- | --- | --- | --- | --- | --- | --- |
-| zeroRL | 1 | 128 | 814.2 ± 6.3 | 322.0 | -156.4 ± 91.2 | 6 |
-| zeroRL | 2 | 128 | 1,025.3 ± 5.1 | 255.7 | -93.2 ± 8.3 | 6 |
-| zeroRL | 4 | 128 | 1,277.0 ± 9.3 | 205.3 | -162.9 ± 40.2 | 6 |
-| zeroRL | 8 | 128 | 1,295.0 ± 6.7 | 202.4 | -59.4 ± 59.5 | 6 |
-| zeroRL | 16 | 128 | 1,488.7 ± 8.9 | 176.1 | -68.4 ± 99.4 | 6 |
-| SB3 | 1 | 128 | 719.8 ± 3.4 | 364.2 | -155.6 ± 40.1 | 6 |
-| SB3 | 2 | 128 | 874.6 ± 3.7 | 299.7 | -53.4 ± 34.8 | 6 |
-| SB3 | 4 | 128 | 1,047.4 ± 2.0 | 250.3 | -97.3 ± 100.6 | 6 |
-| SB3 | 8 | 128 | 1,062.8 ± 4.3 | 246.7 | -78.1 ± 99.5 | 6 |
-| SB3 | 16 | 128 | 1,174.4 ± 4.2 | 223.2 | -96.1 ± 41.8 | 6 |
-| TorchRL | 1 | 128 | 427.2 ± 5.0 | 613.7 | -116.9 ± 44.1 | 6 |
-| TorchRL | 2 | 128 | 547.2 ± 5.9 | 479.1 | -57.5 ± 71.9 | 6 |
-| TorchRL | 4 | 128 | 703.2 ± 7.1 | 372.8 | -117.8 ± 51.2 | 6 |
-| TorchRL | 8 | 128 | 809.7 ± 9.8 | 323.8 | -125.5 ± 4.3 | 6 |
-| TorchRL | 16 | 128 | 897.7 ± 14.5 | 292.1 | -58.2 ± 88.4 | 6 |
-
-![throughput](figures/expD_throughput.png)
-
-![returns](figures/expD_returns.png)
+![returns](figures/expC_humanoidstandupv5_returns.png)
 
 
 ## Findings (computed from the data)
 
-- Exp A collection, N=1: fastest = **zeroRL** (1,657 trans/s); also SB3 1,594, TorchRL 826.
-- Exp A collection, N=2: fastest = **SB3** (2,449 trans/s); also zeroRL 2,416, TorchRL 1,307.
-- Exp A collection, N=4: fastest = **zeroRL** (4,582 trans/s); also SB3 4,577, TorchRL 2,382.
-- Exp A collection, N=8: fastest = **zeroRL** (4,755 trans/s); also SB3 4,712, TorchRL 3,376.
-- Exp A collection, N=16: fastest = **zeroRL** (8,176 trans/s); also SB3 7,991, TorchRL 5,785.
-- Exp B collection, W=1 (N=8): fastest = **zeroRL** (4,474 trans/s); also SB3 4,472, TorchRL 3,309.
-- Exp B collection, W=2 (N=8): fastest = **TorchRL** (7,332 trans/s).
-- Exp B collection, W=4 (N=8): fastest = **TorchRL** (7,842 trans/s).
-- Exp B collection, W=8 (N=8): fastest = **TorchRL** (8,453 trans/s); also SB3 3,966.
-- Exp C PPO, N=1: fastest = **zeroRL** (766 trans/s); also SB3 724, TorchRL 424.
-- Exp C PPO, N=2: fastest = **zeroRL** (968 trans/s); also SB3 877, TorchRL 537.
-- Exp C PPO, N=4: fastest = **zeroRL** (1,275 trans/s); also SB3 1,057, TorchRL 690.
-- Exp C PPO, N=8: fastest = **zeroRL** (1,283 trans/s); also SB3 1,066, TorchRL 780.
-- Exp C PPO, N=16: fastest = **zeroRL** (1,453 trans/s); also SB3 1,187, TorchRL 862.
-- Exp D PPO, N=1: fastest = **zeroRL** (814 trans/s); also SB3 720, TorchRL 427.
-- Exp D PPO, N=2: fastest = **zeroRL** (1,025 trans/s); also SB3 875, TorchRL 547.
-- Exp D PPO, N=4: fastest = **zeroRL** (1,277 trans/s); also SB3 1,047, TorchRL 703.
-- Exp D PPO, N=8: fastest = **zeroRL** (1,295 trans/s); also SB3 1,063, TorchRL 810.
-- Exp D PPO, N=16: fastest = **zeroRL** (1,489 trans/s); also SB3 1,174, TorchRL 898.
-- zeroRL env-scaling efficiency at N=16: 0.31 ± 0.00 (speedup 4.93 ± 0.05, n=5 paired reps, 16x envs).
-- SB3 env-scaling efficiency at N=16: 0.31 ± 0.01 (speedup 5.02 ± 0.13, n=5 paired reps, 16x envs).
-- TorchRL env-scaling efficiency at N=16: 0.43 ± 0.02 (speedup 6.94 ± 0.36, n=5 paired reps, 16x envs).
+- Exp A collection, N=1: fastest = **SB3** (619 trans/s); also zeroRL 605, TorchRL 369.
+- Exp A collection, N=2: fastest = **zeroRL** (807 trans/s); also SB3 792, TorchRL 591.
+- Exp A collection, N=4: fastest = **zeroRL** (1,074 trans/s); also SB3 1,059, TorchRL 865.
+- Exp A collection, N=8: fastest = **zeroRL** (1,137 trans/s); also SB3 1,117, TorchRL 995.
+- Exp A collection, N=16: fastest = **zeroRL** (1,329 trans/s); also SB3 1,304, TorchRL 1,221.
+- Exp B collection, W=1 (N=8): fastest = **SB3** (1,168 trans/s); also zeroRL 1,160, TorchRL 1,031.
+- Exp B collection, W=2 (N=8): fastest = **TorchRL** (2,102 trans/s).
+- Exp B collection, W=4 (N=8): fastest = **TorchRL** (3,036 trans/s).
+- Exp B collection, W=8 (N=8): fastest = **TorchRL** (3,984 trans/s); also SB3 2,260.
+- Exp C PPO, N=1: fastest = **zeroRL** (428 trans/s); also SB3 419, TorchRL 265.
+- Exp C PPO, N=2: fastest = **zeroRL** (537 trans/s); also SB3 526, TorchRL 365.
+- Exp C PPO, N=4: fastest = **zeroRL** (651 trans/s); also SB3 628, TorchRL 460.
+- Exp C PPO, N=8: fastest = **zeroRL** (688 trans/s); also SB3 655, TorchRL 504.
+- Exp C PPO, N=16: fastest = **zeroRL** (763 trans/s); also SB3 721, TorchRL 560.
+- zeroRL env-scaling efficiency at N=16: 0.14 ± 0.00 (speedup 2.21 ± 0.01, n=5 paired reps, 16x envs).
+- SB3 env-scaling efficiency at N=16: 0.13 ± 0.00 (speedup 2.14 ± 0.01, n=5 paired reps, 16x envs).
+- TorchRL env-scaling efficiency at N=16: 0.20 ± 0.00 (speedup 3.23 ± 0.02, n=5 paired reps, 16x envs).
 - zeroRL worker parallel efficiency at W=1: 1.00 (speedup 1.00, n=5 paired reps, 1x workers).
-- SB3 worker parallel efficiency at W=8: 0.11 ± 0.00 (speedup 0.89 ± 0.02, n=5 paired reps, 8x workers).
-- TorchRL worker parallel efficiency at W=8: 0.32 ± 0.00 (speedup 2.55 ± 0.04, n=5 paired reps, 8x workers).
-- zeroRL N=1: training throughput C=766 vs D=814 trans/s (D faster).
-- SB3 N=1: training throughput C=724 vs D=720 trans/s (≈ equal).
-- TorchRL N=1: training throughput C=424 vs D=427 trans/s (≈ equal).
+- SB3 worker parallel efficiency at W=8: 0.25 ± 0.01 (speedup 1.97 ± 0.04, n=5 paired reps, 8x workers).
+- TorchRL worker parallel efficiency at W=8: 0.48 ± 0.00 (speedup 3.87 ± 0.03, n=5 paired reps, 8x workers).
 
 ## Data integrity
 
 | experiment | ok | failed | unsupported |
 | --- | --- | --- | --- |
-| A | 162 | 39 | 0 |
-| B | 35 | 0 | 25 |
-| C | 45 | 0 | 0 |
-| D | 90 | 0 | 0 |
+| A | 215 | 0 | 0 |
+| B | 70 | 0 | 50 |
+| C | 90 | 0 | 0 |
 
 All ok rows recorded an exact transition budget.
 
-**Failed rows:**
-
-- exp A zeroRL N=1 rep=0: RuntimeError: mat1 and mat2 shapes cannot be multiplied (1x348 and 8x64)
-- exp A zeroRL N=1 rep=1: RuntimeError: mat1 and mat2 shapes cannot be multiplied (1x348 and 8x64)
-- exp A zeroRL N=1 rep=2: RuntimeError: mat1 and mat2 shapes cannot be multiplied (1x348 and 8x64)
-- exp A zeroRL N=1 rep=3: RuntimeError: mat1 and mat2 shapes cannot be multiplied (1x348 and 8x64)
-- exp A zeroRL N=1 rep=4: RuntimeError: mat1 and mat2 shapes cannot be multiplied (1x348 and 8x64)
-- exp A zeroRL N=2 rep=0: RuntimeError: mat1 and mat2 shapes cannot be multiplied (2x348 and 8x64)
-- exp A zeroRL N=2 rep=1: RuntimeError: mat1 and mat2 shapes cannot be multiplied (2x348 and 8x64)
-- exp A zeroRL N=2 rep=2: RuntimeError: mat1 and mat2 shapes cannot be multiplied (2x348 and 8x64)
-- exp A zeroRL N=2 rep=3: RuntimeError: mat1 and mat2 shapes cannot be multiplied (2x348 and 8x64)
-- exp A zeroRL N=2 rep=4: RuntimeError: mat1 and mat2 shapes cannot be multiplied (2x348 and 8x64)
-- exp A zeroRL N=4 rep=0: RuntimeError: mat1 and mat2 shapes cannot be multiplied (4x348 and 8x64)
-- exp A zeroRL N=4 rep=1: RuntimeError: mat1 and mat2 shapes cannot be multiplied (4x348 and 8x64)
-- exp A zeroRL N=4 rep=2: RuntimeError: mat1 and mat2 shapes cannot be multiplied (4x348 and 8x64)
-- exp A zeroRL N=4 rep=3: RuntimeError: mat1 and mat2 shapes cannot be multiplied (4x348 and 8x64)
-- exp A zeroRL N=4 rep=4: RuntimeError: mat1 and mat2 shapes cannot be multiplied (4x348 and 8x64)
-- exp A zeroRL N=8 rep=0: RuntimeError: mat1 and mat2 shapes cannot be multiplied (8x348 and 8x64)
-- exp A zeroRL N=8 rep=1: RuntimeError: mat1 and mat2 shapes cannot be multiplied (8x348 and 8x64)
-- exp A zeroRL N=8 rep=2: RuntimeError: mat1 and mat2 shapes cannot be multiplied (8x348 and 8x64)
-- exp A zeroRL N=8 rep=3: RuntimeError: mat1 and mat2 shapes cannot be multiplied (8x348 and 8x64)
-- exp A zeroRL N=8 rep=4: RuntimeError: mat1 and mat2 shapes cannot be multiplied (8x348 and 8x64)
-- exp A zeroRL N=16 rep=0: RuntimeError: mat1 and mat2 shapes cannot be multiplied (16x348 and 8x64)
-- exp A zeroRL N=16 rep=1: RuntimeError: mat1 and mat2 shapes cannot be multiplied (16x348 and 8x64)
-- exp A zeroRL N=16 rep=2: RuntimeError: mat1 and mat2 shapes cannot be multiplied (16x348 and 8x64)
-- exp A zeroRL N=16 rep=3: RuntimeError: mat1 and mat2 shapes cannot be multiplied (16x348 and 8x64)
-- exp A zeroRL N=16 rep=4: RuntimeError: mat1 and mat2 shapes cannot be multiplied (16x348 and 8x64)
-- exp A SB3 N=1 rep=0: RuntimeError: The size of tensor a (348) must match the size of tensor b (8) at non-singleton dimension 1
-- exp A SB3 N=1 rep=1: RuntimeError: The size of tensor a (348) must match the size of tensor b (8) at non-singleton dimension 1
-- exp A SB3 N=1 rep=2: RuntimeError: The size of tensor a (348) must match the size of tensor b (8) at non-singleton dimension 1
-- exp A SB3 N=1 rep=3: RuntimeError: The size of tensor a (348) must match the size of tensor b (8) at non-singleton dimension 1
-- exp A SB3 N=1 rep=4: RuntimeError: The size of tensor a (348) must match the size of tensor b (8) at non-singleton dimension 1
-- exp A SB3 N=2 rep=0: RuntimeError: The size of tensor a (348) must match the size of tensor b (8) at non-singleton dimension 1
-- exp A SB3 N=2 rep=1: RuntimeError: The size of tensor a (348) must match the size of tensor b (8) at non-singleton dimension 1
-- exp A SB3 N=2 rep=2: RuntimeError: The size of tensor a (348) must match the size of tensor b (8) at non-singleton dimension 1
-- exp A SB3 N=2 rep=3: RuntimeError: The size of tensor a (348) must match the size of tensor b (8) at non-singleton dimension 1
-- exp A SB3 N=2 rep=4: RuntimeError: The size of tensor a (348) must match the size of tensor b (8) at non-singleton dimension 1
-- exp A SB3 N=4 rep=0: RuntimeError: The size of tensor a (348) must match the size of tensor b (8) at non-singleton dimension 1
-- exp A SB3 N=4 rep=1: RuntimeError: The size of tensor a (348) must match the size of tensor b (8) at non-singleton dimension 1
-- exp A SB3 N=4 rep=2: RuntimeError: The size of tensor a (348) must match the size of tensor b (8) at non-singleton dimension 1
-- exp A SB3 N=4 rep=3: RuntimeError: The size of tensor a (348) must match the size of tensor b (8) at non-singleton dimension 1
-
-GPU rows: 205 (device=cuda)
-
-Total rows: 601.
+Total rows: 425.
 
 ## Appendix — protocol C/D configuration (from a result row)
 
 | key | value |
 | --- | --- |
 | device | cpu |
-| env_id | LunarLander-v3 |
+| env_id | HumanoidStandup-v5 |
 | rollout_steps_per_env | 2048 |
 | rollout_global | 2048 |
 | updates | 128 |

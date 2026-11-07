@@ -1,5 +1,4 @@
 """Generate REPORT.md from the benchmark result JSONL files.
-
 All numbers are computed from the raw rows (aggregated over every
 repetition, never best-of); findings sentences are derived programmatically
 so the report cannot claim anything the data does not show. Missing or

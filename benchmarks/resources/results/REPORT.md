@@ -1,6 +1,6 @@
 # Resource-consumption benchmark report
 
-Generated: 2026-11-03T19:43:24.430693+00:00 · results: /home/darrius/project/zerorl/benchmarks/resources/results
+Generated: 2026-11-07T20:42:43.014182+00:00 · results: /home/research/projects/zeroRL/benchmarks/resources/results
 
 ## Resource consumption (experiment R)
 
@@ -8,14 +8,14 @@ Fixed workloads, device CPU. CPU% = sum over the live process tree (multiprocess
 
 | workload | framework | wall (s) | cpu util avg (%) | cpu total (s) | cpu s / 1k | rss peak (MiB) | n |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| collect | zeroRL | 20.6 ± 2.1 | 603.9 ± 18.2 | 124.2 ± 11.2 | 1.24 ± 0.11 | 932.7 ± 22.8 | 5 |
-| collect | SB3 | 17.2 ± 0.4 | 627.4 ± 8.4 | 108.2 ± 1.7 | 1.08 ± 0.02 | 964.8 ± 6.2 | 5 |
-| collect | TorchRL | 36.9 ± 3.7 | 447.1 ± 12.5 | 164.7 ± 11.8 | 1.65 ± 0.12 | 983.2 ± 0.6 | 5 |
-| ppo | zeroRL | 201.8 ± 7.0 | 619.7 ± 12.8 | 1,250.1 ± 34.6 | 4.77 ± 0.13 | 1,153.2 ± 217.5 | 3 |
-| ppo | SB3 | 225.2 ± 4.7 | 639.6 ± 2.1 | 1,440.1 ± 26.2 | 5.49 ± 0.10 | 1,038.6 ± 3.3 | 3 |
-| ppo | TorchRL | 479.5 ± 50.4 | 546.8 ± 17.4 | 2,609.5 ± 205.7 | 9.95 ± 0.78 | 1,057.4 ± 3.1 | 3 |
+| collect | zeroRL | 25.6 ± 0.2 | 916.9 ± 6.5 | 235.0 ± 0.8 | 2.35 ± 0.01 | 819.0 ± 16.0 | 7 |
+| collect | SB3 | 25.6 ± 0.2 | 916.1 ± 8.1 | 235.7 ± 0.9 | 2.36 ± 0.01 | 846.7 ± 3.6 | 5 |
+| collect | TorchRL | 34.6 ± 0.4 | 705.8 ± 8.5 | 244.5 ± 2.4 | 2.44 ± 0.02 | 986.4 ± 4.8 | 5 |
+| ppo | zeroRL | 219.4 ± 1.5 | 873.0 ± 4.4 | 1,911.8 ± 8.4 | 7.29 ± 0.03 | 1,033.7 ± 5.4 | 3 |
+| ppo | SB3 | 263.7 ± 1.1 | 902.8 ± 3.1 | 2,378.0 ± 5.4 | 9.07 ± 0.02 | 1,049.9 ± 3.2 | 3 |
+| ppo | TorchRL | 395.6 ± 1.9 | 814.0 ± 2.7 | 3,201.3 ± 5.5 | 12.21 ± 0.02 | 1,068.2 ± 3.4 | 3 |
 
-- GPU telemetry: available (device-level only).
+- GPU telemetry: unavailable — NVML unavailable or produced no samples.
 - Energy: unavailable — GPU power telemetry unsupported on this device and no RAPL/powercap energy interface for CPU/whole-system energy.
 - Raw per-run rows: `results/resources.jsonl` (validation runs kept separately in `resources_validation.*`).
 
@@ -27,17 +27,17 @@ _Memory note: raw values are bytes (v2; v1 rows/sample files used KiB); averages
 
 | framework | rss (MiB) | pss (MiB) | uss (MiB) | peak rss — measure phase (MiB) | n |
 | --- | --- | --- | --- | --- | --- |
-| zeroRL | 932.7 ± 22.8 | 930.1 ± 22.7 | 929.6 ± 22.7 | 928.9 ± 23.5 | 5 |
-| SB3 | 964.8 ± 6.2 | 962.2 ± 6.1 | 961.6 ± 6.1 | 962.6 ± 6.5 | 5 |
-| TorchRL | 983.2 ± 0.6 | 980.6 ± 0.6 | 980.0 ± 0.7 | 983.2 ± 0.6 | 5 |
+| zeroRL | 819.0 ± 16.0 | 811.2 ± 15.9 | 809.9 ± 15.9 | 814.6 ± 15.8 | 7 |
+| SB3 | 846.7 ± 3.6 | 839.1 ± 3.6 | 837.8 ± 3.6 | 844.3 ± 6.0 | 5 |
+| TorchRL | 986.4 ± 4.8 | 979.0 ± 4.9 | 977.7 ± 4.9 | 986.4 ± 4.8 | 5 |
 
 **Average (end-to-end, time-weighted)**
 
 | framework | rss (MiB) | pss (MiB) | uss (MiB) | n |
 | --- | --- | --- | --- | --- |
-| zeroRL | 927.3 ± 24.2 | 924.8 ± 24.0 | 924.2 ± 24.0 | 5 |
-| SB3 | 961.4 ± 5.5 | 958.8 ± 5.5 | 958.2 ± 5.5 | 5 |
-| TorchRL | 983.1 ± 0.6 | 980.5 ± 0.6 | 980.0 ± 0.7 | 5 |
+| zeroRL | 813.8 ± 16.0 | 805.9 ± 16.0 | 804.6 ± 16.0 | 7 |
+| SB3 | 843.2 ± 5.4 | 835.5 ± 5.6 | 834.2 ± 5.6 | 5 |
+| TorchRL | 985.3 ± 5.8 | 977.9 ± 5.8 | 976.6 ± 5.8 | 5 |
 
 ### Memory (RSS / PSS / USS) — ppo
 
@@ -45,14 +45,14 @@ _Memory note: raw values are bytes (v2; v1 rows/sample files used KiB); averages
 
 | framework | rss (MiB) | pss (MiB) | uss (MiB) | peak rss — measure phase (MiB) | n |
 | --- | --- | --- | --- | --- | --- |
-| zeroRL | 1,153.2 ± 217.5 | 1,087.7 ± 123.6 | 1,028.1 ± 33.0 | 1,153.2 ± 217.6 | 3 |
-| SB3 | 1,038.6 ± 3.3 | 1,027.5 ± 3.5 | 1,020.2 ± 3.5 | 1,038.6 ± 3.3 | 3 |
-| TorchRL | 1,057.4 ± 3.1 | 1,046.2 ± 3.0 | 1,039.1 ± 3.2 | 1,057.4 ± 3.1 | 3 |
+| zeroRL | 1,033.7 ± 5.4 | 1,016.6 ± 5.4 | 1,007.2 ± 5.4 | 1,033.6 ± 5.4 | 3 |
+| SB3 | 1,049.9 ± 3.2 | 1,032.8 ± 3.3 | 1,023.5 ± 3.3 | 1,049.9 ± 3.3 | 3 |
+| TorchRL | 1,068.2 ± 3.4 | 1,051.2 ± 3.3 | 1,041.8 ± 3.3 | 1,068.2 ± 3.4 | 3 |
 
 **Average (end-to-end, time-weighted)**
 
 | framework | rss (MiB) | pss (MiB) | uss (MiB) | n |
 | --- | --- | --- | --- | --- |
-| zeroRL | 1,024.6 ± 3.4 | 1,013.4 ± 3.3 | 1,006.0 ± 3.5 | 3 |
-| SB3 | 1,037.4 ± 3.7 | 1,026.3 ± 3.7 | 1,019.1 ± 3.7 | 3 |
-| TorchRL | 1,056.5 ± 2.9 | 1,045.5 ± 2.7 | 1,038.3 ± 2.8 | 3 |
+| zeroRL | 1,031.9 ± 4.8 | 1,014.8 ± 4.9 | 1,005.4 ± 4.9 | 3 |
+| SB3 | 1,048.5 ± 4.3 | 1,031.6 ± 4.2 | 1,022.2 ± 4.2 | 3 |
+| TorchRL | 1,064.8 ± 2.9 | 1,048.0 ± 2.9 | 1,038.6 ± 2.9 | 3 |

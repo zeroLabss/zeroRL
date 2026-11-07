@@ -65,7 +65,7 @@ FRAMEWORKS_A = ("zeroRL", "SB3", "TorchRL")
 class CollectionConfig:
     """Workload definition for Experiment A (shared by all frameworks)."""
 
-    env_id: str = "LunarLander-v3"
+    env_id: str = "HumanoidStandup-v5"
     warmup: int = 16_000
     measure: int = 100_000
     reference_seed: int = 4242

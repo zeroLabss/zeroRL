@@ -616,7 +616,7 @@ def run_torchrl_collection(cfg: CollectionConfig, num_envs: int, seed: int,
                              for x in td["observation"][0].reshape(-1)[:4]]
             # td batch dims are (env, time); fingerprint order must be
             # time-major (step0_env0, step0_env1, ...) to match zeroRL/SB3.
-            _absorb_actions(fb, td["action"].movedim(-1, 0).reshape(-1).tolist(),
+            _absorb_actions(fb, td["action"].movedim(1, 0).reshape(-1).tolist(),
                             warm_tracker, is_discrete=d.is_discrete)
             warm_tracker.record(n)
         warm_s = time.perf_counter() - t
@@ -640,7 +640,7 @@ def run_torchrl_collection(cfg: CollectionConfig, num_envs: int, seed: int,
         t = time.perf_counter()
         for td in collector2:
             n = int(td.batch_size.numel())
-            _absorb_actions(fb, td["action"].movedim(-1, 0).reshape(-1).tolist(),
+            _absorb_actions(fb, td["action"].movedim(1, 0).reshape(-1).tolist(),
                             meas_tracker, is_discrete=d.is_discrete)
             for key in meas_fields:
                 meas_fields[key] += n

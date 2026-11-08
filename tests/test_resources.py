@@ -674,8 +674,8 @@ def test_resources_env_flag_and_slug() -> None:
 
     args = build_parser().parse_args([])
     assert args.env == "LunarLander-v3"
-    args = build_parser().parse_args(["--env", "HumanoidStandup-v4"])
-    assert args.env == "HumanoidStandup-v4"
+    args = build_parser().parse_args(["--env", "HumanoidStandup-v5"])
+    assert args.env == "HumanoidStandup-v5"
     # non-default env => slug-prefixed sample files (run.py composition)
-    assert f"{env_slug('HumanoidStandup-v4')}_collect_zeroRL_rep0.jsonl" == \
-        "humanoidstandupv4_collect_zeroRL_rep0.jsonl"
+    assert f"{env_slug('HumanoidStandup-v5')}_collect_zeroRL_rep0.jsonl" == \
+        "humanoidstandupv5_collect_zeroRL_rep0.jsonl"

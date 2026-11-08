@@ -188,7 +188,10 @@ def _absorb_actions(fb: dict[str, Any], actions: list[int],
         if len(fb["actions_head"]) < FINGERPRINT_HEAD:
             fb["actions_head"].append(int(a) if is_discrete
                                       else round(float(a), 6))
-    total = int(sum(actions))
+    # int actions sum to int (unchanged); continuous sums MUST stay float —
+    # int() truncation made every Box action sum to 0 and broke parity with
+    # zeroRL's float(np.sum(buffer_actions)) fingerprint.
+    total = sum(actions)
     if tracker.target == fb.get("_warm_target"):
         fb["action_sum_warmup"] += total
     else:
@@ -381,14 +384,22 @@ def run_zerorl_collection(cfg: CollectionConfig, num_envs: int, seed: int,
 
         # fingerprints from the (official-path) buffer
         data = buffer.get_all()
-        actions = data["action"].reshape(-1).tolist()
+        flat = data["action"].reshape(-1)
+        # action elements per vectorized step: 1 for scalar (discrete)
+        # actions, act_dim for Box actions — the warmup slice must cover
+        # whole transitions, matching what _absorb_actions accumulates for
+        # SB3/TorchRL (all warmup action values), not a flat-element prefix.
+        act_dim = flat.numel() // (data["action"].shape[0]
+                                   * data["action"].shape[1])
+        actions = flat.tolist()
         warm_n = cfg.warmup
+        warm_elems = warm_n * act_dim
         fb = {
             "first_obs_head": [round(float(x), 6) for x in first_obs.reshape(-1)[:4]],
             "actions_head": [int(a) if is_discrete else round(float(a), 6)
                              for a in actions[:FINGERPRINT_HEAD]],
-            "action_sum_warmup": float(np.sum(actions[:warm_n])),
-            "action_sum_measure": float(np.sum(actions[warm_n:])),
+            "action_sum_warmup": float(np.sum(actions[:warm_elems])),
+            "action_sum_measure": float(np.sum(actions[warm_elems:])),
         }
 
         warm_t = BudgetTracker(cfg.warmup)

@@ -8,8 +8,7 @@ Usage:
 from __future__ import annotations
 
 import os
-os.environ["MUJOCO_GL"] = "egl"
-os.environ["PYOPENGL_PLATFORM"] = "egl"
+
 
 import argparse
 
@@ -491,4 +490,9 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    # Standalone runs may target headless EGL; set only here so importing
+    # this module (e.g. from tests) never poisons os.environ for spawned
+    # child processes that import mujoco fresh (CI child crash).
+    os.environ.setdefault("MUJOCO_GL", "egl")
+    os.environ.setdefault("PYOPENGL_PLATFORM", "egl")
     main()

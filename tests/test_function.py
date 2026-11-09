@@ -130,6 +130,32 @@ class TestGetObsAct:
         _, act_shape, _, _, _ = get_obs_act(cartpole_env)
         assert act_shape == ()
 
+    def test_box_env_obs_n_is_flat_int(self, pendulum_env) -> None:
+        """Contract: for vector obs obs_n is the FLAT size (int) — matches
+        the name; obs_shape keeps the tuple."""
+        obs_shape, act_shape, obs_n, act_n, is_discrete = get_obs_act(
+            pendulum_env)
+        assert obs_shape == (3,)
+        assert isinstance(obs_n, int) and obs_n == 3
+        assert is_discrete is False and act_n == 1
+
+    def test_image_env_obs_n_is_rank3_tuple(self) -> None:
+        """Rank-3 image obs: obs_n is the (C, H, W) tuple for CNNs."""
+        import types
+
+        import gymnasium as gym2
+        import numpy as np2
+
+        fake = types.SimpleNamespace(
+            observation_space=gym2.spaces.Box(0, 255, (84, 84, 3),
+                                              dtype=np2.uint8),
+            action_space=gym2.spaces.Discrete(4),
+        )
+        obs_shape, _, obs_n, act_n, is_discrete = get_obs_act(fake)
+        assert obs_shape == (84, 84, 3)
+        assert obs_n == (84, 84, 3) and isinstance(obs_n, tuple)
+        assert is_discrete is True and act_n == 4
+
     def test_discrete_env_obs_dim(self, cartpole_env) -> None:
         obs_shape, _, obs_n, _, _ = get_obs_act(cartpole_env)
         assert obs_shape == (4,)

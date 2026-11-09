@@ -73,7 +73,7 @@ class TestHopper2DEnv:
         obs, _ = env.reset(seed=seeds)
         assert obs.shape[0] == 2
         obs_dim, act_dim, obs_n, act_n, is_discrete = get_obs_act(env)
-        assert obs_n == 11
+        assert obs_n == 11  # vector obs -> flat int (matches the name)
         assert act_n == 3
         assert is_discrete is False
         assert act_dim == (3,)

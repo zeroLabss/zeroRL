@@ -68,10 +68,12 @@ class EnvDims(NamedTuple):
 def env_dims(env_id: str) -> EnvDims:
     """Probe an env's spaces (``gym.make`` -> read -> close); lru-cached.
 
-    Mirrors ``zerorl.functions.get_obs_act`` exactly:
-    discrete -> ``act_shape=()``, ``act_n=space.n``; Box -> ``act_shape=
-    space.shape``, ``act_n=int(np.prod(shape))``; ``obs_n = shape[-1]``
-    (or the space itself for 3-D image observations).
+    Discrete -> ``act_shape=()``, ``act_n=space.n``; Box -> ``act_shape=
+    space.shape``, ``act_n=int(np.prod(shape))``. ``obs_n`` is the FLAT
+    integer input size for the benchmark MLPs — ``int(np.prod(obs_shape))``
+    for every rank (``get_obs_act`` now returns the observation *shape*
+    tuple as ``obs_n``; benchmark trunks stay MLP-only, so flat ints are
+    the correct contract here).
     """
     env = gym.make(env_id)
     try:
@@ -86,7 +88,7 @@ def env_dims(env_id: str) -> EnvDims:
         act_n = int(act_space.n)  # type: ignore[attr-defined]
     else:
         act_n = int(np.prod(act_space.shape))  # type: ignore[arg-type]
-    obs_n: Any = obs_space if len(obs_shape) == 3 else obs_shape[-1]
+    obs_n = int(np.prod(obs_shape))
     return EnvDims(obs_shape, act_shape, obs_n, act_n, is_discrete)
 
 

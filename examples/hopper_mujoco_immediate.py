@@ -8,8 +8,7 @@ Usage:
 from __future__ import annotations
 
 import os
-os.environ["MUJOCO_GL"] = "egl"
-os.environ["PYOPENGL_PLATFORM"] = "egl"
+
 
 import argparse
 
@@ -350,7 +349,7 @@ def run_immediate(
     env = vectorize_env(Hopper2D, num_envs=cfg.num_envs)
     obs_dim, act_dim, obs_n, act_n, is_discrete = get_obs_act(env)
     agent = ActorCriticAgent(obs_n, act_n, is_discrete, hidden_layer).to(cfg.device)
-    normalizer = NormMeanStd((int(obs_n),), device=cfg.device)
+    normalizer = NormMeanStd(obs_dim, device=cfg.device)
 
     if resume_path is not None:
         ckpt = torch.load(resume_path, map_location=cfg.device, weights_only=False)
@@ -491,4 +490,9 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    # Standalone runs may target headless EGL; set only here so importing
+    # this module (e.g. from tests) never poisons os.environ for spawned
+    # child processes that import mujoco fresh (CI child crash).
+    os.environ.setdefault("MUJOCO_GL", "egl")
+    os.environ.setdefault("PYOPENGL_PLATFORM", "egl")
     main()

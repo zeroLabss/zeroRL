@@ -1199,8 +1199,8 @@ class TestSharedTrunkSinglePass:
         policy_calls = [0]
         orig_wiring = pp.build_torchrl_ppo_wiring
 
-        def wiring_spy(trunk, cfg, updates):
-            wiring = orig_wiring(trunk, cfg, updates)
+        def wiring_spy(trunk, cfg, updates, **kwargs):
+            wiring = orig_wiring(trunk, cfg, updates, **kwargs)
             wiring["collector_policy"].register_forward_hook(
                 lambda *_: policy_calls.__setitem__(0, policy_calls[0] + 1))
             return wiring
@@ -1208,8 +1208,8 @@ class TestSharedTrunkSinglePass:
         monkeypatch.setattr(pp, "build_torchrl_ppo_wiring", wiring_spy)
 
         class CountingTrunk(ref.TorchRLSharedTrunk):
-            def __init__(self, sd=None):
-                super().__init__(sd)
+            def __init__(self, sd=None, **kwargs):
+                super().__init__(sd, **kwargs)
                 self.trunk.register_forward_hook(
                     lambda *_: counter.__setitem__(0, counter[0] + 1))
 
@@ -1698,28 +1698,28 @@ class TestCLIErrorRecording:
 
 class TestEnvAgnosticAdaptation:
     """Env-agnostic + continuous-action adaptation of the shared reference
-    policy (HumanoidStandup-v4 as the continuous case)."""
+    policy (HumanoidStandup-v5 as the continuous case)."""
 
     def test_env_slug_and_dims(self) -> None:
-        assert schema.env_slug("HumanoidStandup-v4") == "humanoidstandupv4"
+        assert schema.env_slug("HumanoidStandup-v5") == "humanoidstandupv5"
         assert schema.env_slug("LunarLander-v3") == "lunarlanderv3"
 
         d = ref.env_dims("LunarLander-v3")
         assert (d.obs_n, d.act_n, d.is_discrete) == (8, 4, True)
 
-        d = ref.env_dims("HumanoidStandup-v4")   # gym.make; lru-cached
-        assert d.obs_shape == (376,)
+        d = ref.env_dims("HumanoidStandup-v5")   # gym.make; lru-cached
+        assert d.obs_shape == (348,)
         assert d.act_n == 17
         assert d.is_discrete is False
 
     def test_humanoid_reference_sd_shapes(self) -> None:
-        sd = ref.build_reference_state_dict(4242, obs_dim=376, act_dim=17,
+        sd = ref.build_reference_state_dict(4242, obs_dim=348, act_dim=17,
                                              is_discrete=False)
-        assert sd["extract_layer.0.weight"].shape == (64, 376)
+        assert sd["extract_layer.0.weight"].shape == (64, 348)
         assert sd["actor.weight"].shape == (17, 64)
         assert "log_std" in sd and sd["log_std"].shape == (17,)
 
-        trunk = ref.TorchRLSharedTrunk(sd, obs_dim=376, act_dim=17)
+        trunk = ref.TorchRLSharedTrunk(sd, obs_dim=348, act_dim=17)
         assert isinstance(trunk.log_std, torch.nn.Parameter)
         assert any(p is trunk.log_std for p in trunk.parameters())
 
@@ -1735,19 +1735,19 @@ class TestEnvAgnosticAdaptation:
 
         from benchmarks.scalability.collection import _TorchRLCollectPolicy
 
-        sd = ref.build_reference_state_dict(4242, obs_dim=376, act_dim=17,
+        sd = ref.build_reference_state_dict(4242, obs_dim=348, act_dim=17,
                                              is_discrete=False)
         agent = ref.build_deterministic_zerorl_agent(
-            sd, obs_dim=376, act_dim=17, is_discrete=False)
+            sd, obs_dim=348, act_dim=17, is_discrete=False)
         sb3 = ref.build_sb3_shared_policy(
-            gym.spaces.Box(-1.0, 1.0, shape=(376,), dtype="float32"),
+            gym.spaces.Box(-1.0, 1.0, shape=(348,), dtype="float32"),
             gym.spaces.Box(-1.0, 1.0, shape=(17,), dtype="float32"))
         ref.load_into_sb3(sb3, sd)
-        trunk = ref.TorchRLSharedTrunk(sd, obs_dim=376, act_dim=17)
+        trunk = ref.TorchRLSharedTrunk(sd, obs_dim=348, act_dim=17)
         torchrl_policy = _TorchRLCollectPolicy(trunk)
 
         torch.manual_seed(0)
-        obs = torch.randn(8, 376)
+        obs = torch.randn(8, 348)
 
         z = agent.get_action(obs)
         s_actions, s_values, s_lp, s_ent = sb3.forward_collection(obs)
@@ -1777,8 +1777,8 @@ class TestEnvAgnosticAdaptation:
         for mod in (run_mod, res_run):
             assert mod.build_parser().parse_args([]).env == "LunarLander-v3"
             parsed = mod.build_parser().parse_args(
-                ["--env", "HumanoidStandup-v4"])
-            assert parsed.env == "HumanoidStandup-v4"
+                ["--env", "HumanoidStandup-v5"])
+            assert parsed.env == "HumanoidStandup-v5"
 
         # resources report/plots expose build_parser: --env-slug default ""
         # + accepted override
@@ -1812,7 +1812,7 @@ class TestEnvAgnosticAdaptation:
             assert captured == ["", "x"], (fn_name, captured)
 
         # auto-out composition used by run.py mains for a non-default env
-        assert ("expA_" + schema.env_slug("HumanoidStandup-v4")
-                + ".jsonl") == "expA_humanoidstandupv4.jsonl"
-        assert ("resources_" + schema.env_slug("HumanoidStandup-v4")
-                + ".jsonl") == "resources_humanoidstandupv4.jsonl"
+        assert ("expA_" + schema.env_slug("HumanoidStandup-v5")
+                + ".jsonl") == "expA_humanoidstandupv5.jsonl"
+        assert ("resources_" + schema.env_slug("HumanoidStandup-v5")
+                + ".jsonl") == "resources_humanoidstandupv5.jsonl"

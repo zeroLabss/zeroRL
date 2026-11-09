@@ -155,7 +155,7 @@ def run_torchrl_mp_collection(cfg: CollectionConfig, num_envs: int,
             if first_obs is None:
                 first_obs = [round(float(x), 6)
                              for x in td["observation"][0, 0].reshape(-1)[:4]]
-            _absorb_actions(fb, td["action"].movedim(-1, 0).reshape(-1).tolist(),
+            _absorb_actions(fb, td["action"].movedim(1, 0).reshape(-1).tolist(),
                             warm_tracker, is_discrete=d.is_discrete)
             warm_tracker.record(n)
         warm_s = time.perf_counter() - t
@@ -180,7 +180,7 @@ def run_torchrl_mp_collection(cfg: CollectionConfig, num_envs: int,
         t = time.perf_counter()
         for td in collector2:
             n = int(td.batch_size.numel())
-            _absorb_actions(fb, td["action"].movedim(-1, 0).reshape(-1).tolist(),
+            _absorb_actions(fb, td["action"].movedim(1, 0).reshape(-1).tolist(),
                             meas_tracker, is_discrete=d.is_discrete)
             meas_tracker.record(n)
         meas_s = time.perf_counter() - t

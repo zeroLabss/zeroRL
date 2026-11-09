@@ -1199,8 +1199,8 @@ class TestSharedTrunkSinglePass:
         policy_calls = [0]
         orig_wiring = pp.build_torchrl_ppo_wiring
 
-        def wiring_spy(trunk, cfg, updates):
-            wiring = orig_wiring(trunk, cfg, updates)
+        def wiring_spy(trunk, cfg, updates, **kwargs):
+            wiring = orig_wiring(trunk, cfg, updates, **kwargs)
             wiring["collector_policy"].register_forward_hook(
                 lambda *_: policy_calls.__setitem__(0, policy_calls[0] + 1))
             return wiring
@@ -1208,8 +1208,8 @@ class TestSharedTrunkSinglePass:
         monkeypatch.setattr(pp, "build_torchrl_ppo_wiring", wiring_spy)
 
         class CountingTrunk(ref.TorchRLSharedTrunk):
-            def __init__(self, sd=None):
-                super().__init__(sd)
+            def __init__(self, sd=None, **kwargs):
+                super().__init__(sd, **kwargs)
                 self.trunk.register_forward_hook(
                     lambda *_: counter.__setitem__(0, counter[0] + 1))
 

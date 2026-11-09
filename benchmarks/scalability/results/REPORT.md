@@ -1,24 +1,24 @@
 # Scalability benchmark report
 
-Generated: 2026-11-07T19:17:21.500812+00:00 · rows: 425 · figures in `figures/`
+Generated: 2026-11-08T23:35:45.517868+00:00 · rows: 300 · figures in `figures/`
 
 ## Environment
 
 | key | value |
 | --- | --- |
-| python | 3.13.14 |
-| platform | Linux-6.8.12-tegra-aarch64-with-glibc2.39 |
-| processor | aarch64 |
+| python | 3.11.14 |
+| platform | Linux-5.15.167.4-microsoft-standard-WSL2-x86_64-with-glibc2.39 |
+| processor | x86_64 |
 | device | cpu |
-| hostname | gpu1 |
+| hostname | darrius |
 | torch | 2.13.0+cu130 |
-| torch_num_threads | 14 |
-| cuda_available | True |
+| torch_num_threads | 6 |
+| cuda_available | False |
 | gymnasium | 1.3.0 |
-| sb3 | 2.9.0 |
+| sb3 | 2.9.2 |
 | torchrl | 0.14.1 |
 | tensordict | 0.14.3 |
-| git_sha | 7813ea3a3711cfbcf6592ef8af5bb05b04fb4dc4 |
+| git_sha | 6e59107451973271173ada17576bd74858297f8c |
 
 ## Methodology (summary)
 
@@ -29,44 +29,44 @@ Generated: 2026-11-07T19:17:21.500812+00:00 · rows: 425 · figures in `figures/
 - Phase timing: `init` = env + policy construction + weight load (+ TorchRL collector/worker spawn); `warmup` (A/B only, excluded); `boundary` (A/B only) = warmup→measure phase reset / collector-worker restart, timed as `boundary_seconds`; `measure` = the official training/collection steady state. Full framework-specific details in `INSPECTION.md`.
 - Device: CPU (`CUDA_VISIBLE_DEVICES=""`); protocol C/D hyperparameters in `ppo_protocols.py` (lr 3e-4 linear-decay, gamma .99, gae_lambda .95, clip .2, entropy .01, value .5, epochs 10, batch 64, grad-clip .5).
 
-## Experiment A — environment scaling (collection) [humanoidstandupv5]
+## Experiment A — environment scaling (collection)
 
 | framework | N | throughput (trans/s) | mean time (s) | speedup (paired) | env-scaling efficiency (paired) | pairs (n) |
 | --- | --- | --- | --- | --- | --- | --- |
-| zeroRL | 1 | 605.0 ± 11.0 | 165.33 | 1.00 | 1.00 | 5 |
-| zeroRL | 2 | 806.7 ± 31.4 | 124.14 | 1.36 ± 0.01 | 0.68 ± 0.01 | 5 |
-| zeroRL | 4 | 1,074.0 ± 32.2 | 93.19 | 1.79 ± 0.01 | 0.45 ± 0.00 | 5 |
-| zeroRL | 8 | 1,136.9 ± 38.2 | 88.06 | 1.91 ± 0.02 | 0.24 ± 0.00 | 5 |
-| zeroRL | 16 | 1,329.3 ± 33.9 | 75.28 | 2.21 ± 0.01 | 0.14 ± 0.00 | 5 |
-| SB3 | 1 | 618.6 ± 10.1 | 161.71 | 1.00 | 1.00 | 5 |
-| SB3 | 2 | 791.7 ± 34.1 | 126.52 | 1.33 ± 0.01 | 0.66 ± 0.00 | 5 |
-| SB3 | 4 | 1,059.2 ± 29.9 | 94.48 | 1.74 ± 0.01 | 0.44 ± 0.00 | 5 |
-| SB3 | 8 | 1,116.7 ± 41.6 | 89.67 | 1.86 ± 0.01 | 0.23 ± 0.00 | 5 |
-| SB3 | 16 | 1,304.4 ± 33.7 | 76.71 | 2.14 ± 0.01 | 0.13 ± 0.00 | 5 |
-| TorchRL | 1 | 369.2 ± 14.1 | 271.25 | 1.00 | 1.00 | 5 |
-| TorchRL | 2 | 590.6 ± 19.1 | 169.50 | 1.59 ± 0.01 | 0.79 ± 0.01 | 5 |
-| TorchRL | 4 | 864.7 ± 22.6 | 115.72 | 2.31 ± 0.02 | 0.58 ± 0.00 | 5 |
-| TorchRL | 8 | 995.2 ± 38.1 | 100.61 | 2.66 ± 0.02 | 0.33 ± 0.00 | 5 |
-| TorchRL | 16 | 1,221.5 ± 32.6 | 81.92 | 3.23 ± 0.02 | 0.20 ± 0.00 | 5 |
+| zeroRL | 1 | 2,022.2 ± 111.8 | 49.58 | 1.00 | 1.00 | 5 |
+| zeroRL | 2 | 2,499.1 ± 171.7 | 40.19 | 1.25 ± 0.02 | 0.63 ± 0.01 | 5 |
+| zeroRL | 4 | 4,024.9 ± 294.3 | 24.97 | 2.03 ± 0.09 | 0.51 ± 0.02 | 5 |
+| zeroRL | 8 | 6,014.8 ± 455.7 | 16.71 | 3.04 ± 0.15 | 0.38 ± 0.02 | 5 |
+| zeroRL | 16 | 7,928.5 ± 715.4 | 12.71 | 4.05 ± 0.05 | 0.25 ± 0.00 | 5 |
+| SB3 | 1 | 2,029.1 ± 153.2 | 49.54 | 1.00 | 1.00 | 5 |
+| SB3 | 2 | 2,499.3 ± 191.6 | 40.22 | 1.23 ± 0.04 | 0.62 ± 0.02 | 5 |
+| SB3 | 4 | 4,073.4 ± 328.3 | 24.69 | 2.02 ± 0.05 | 0.50 ± 0.01 | 5 |
+| SB3 | 8 | 5,969.0 ± 517.3 | 16.87 | 2.95 ± 0.16 | 0.37 ± 0.02 | 5 |
+| SB3 | 16 | 7,948.9 ± 792.0 | 12.69 | 3.97 ± 0.16 | 0.25 ± 0.01 | 5 |
+| TorchRL | 1 | 703.1 ± 61.2 | 143.21 | 1.00 | 1.00 | 5 |
+| TorchRL | 2 | 942.9 ± 100.8 | 107.17 | 1.36 ± 0.02 | 0.68 ± 0.01 | 5 |
+| TorchRL | 4 | 1,663.7 ± 151.7 | 60.56 | 2.37 ± 0.04 | 0.59 ± 0.01 | 5 |
+| TorchRL | 8 | 2,930.4 ± 287.7 | 34.42 | 4.21 ± 0.09 | 0.53 ± 0.01 | 5 |
+| TorchRL | 16 | 4,719.1 ± 484.6 | 21.39 | 6.76 ± 0.31 | 0.42 ± 0.02 | 5 |
 
-![throughput](figures/expA_humanoidstandupv5_throughput.png)
+![throughput](figures/expA_throughput.png)
 
-![speedup](figures/expA_humanoidstandupv5_speedup.png)
+![speedup](figures/expA_speedup.png)
 
-![efficiency](figures/expA_humanoidstandupv5_efficiency.png)
+![efficiency](figures/expA_efficiency.png)
 
 
-## Experiment B — worker scaling (collection, N=8) [humanoidstandupv5]
+## Experiment B — worker scaling (collection, N=8)
 
 | framework | W | throughput (trans/s) | mean time (s) | speedup (paired) | worker parallel efficiency (paired) | pairs (n) |
 | --- | --- | --- | --- | --- | --- | --- |
-| zeroRL | 1 | 1,159.6 ± 6.7 | 86.24 | 1.00 | 1.00 | 5 |
-| SB3 | 1 | 1,167.6 ± 3.3 | 85.65 | 1.00 | 1.00 | 5 |
-| SB3 | 8 | 2,259.8 ± 57.7 | 44.28 | 1.97 ± 0.04 | 0.25 ± 0.01 | 5 |
-| TorchRL | 1 | 1,030.9 ± 3.2 | 97.01 | 1.00 | 1.00 | 5 |
-| TorchRL | 2 | 2,101.8 ± 20.2 | 47.58 | 2.04 ± 0.02 | 1.02 ± 0.01 | 5 |
-| TorchRL | 4 | 3,036.2 ± 24.0 | 32.94 | 2.94 ± 0.02 | 0.73 ± 0.00 | 5 |
-| TorchRL | 8 | 3,983.5 ± 25.7 | 25.10 | 3.87 ± 0.03 | 0.48 ± 0.00 | 5 |
+| zeroRL | 1 | 5,639.2 ± 181.1 | 17.75 | 1.00 | 1.00 | 5 |
+| SB3 | 1 | 5,460.7 ± 248.0 | 18.34 | 1.00 | 1.00 | 5 |
+| SB3 | 8 | 2,886.7 ± 56.7 | 34.65 | 0.53 ± 0.02 | 0.07 ± 0.00 | 5 |
+| TorchRL | 1 | 2,619.0 ± 106.1 | 38.23 | 1.00 | 1.00 | 5 |
+| TorchRL | 2 | 3,853.9 ± 161.9 | 25.99 | 1.47 ± 0.10 | 0.74 ± 0.05 | 5 |
+| TorchRL | 4 | 3,105.6 ± 120.1 | 32.24 | 1.19 ± 0.04 | 0.30 ± 0.01 | 5 |
+| TorchRL | 8 | 2,119.0 ± 76.3 | 47.24 | 0.81 ± 0.05 | 0.10 ± 0.01 | 5 |
 
 **Unsupported (recorded, not run)**:
 
@@ -95,105 +95,113 @@ Generated: 2026-11-07T19:17:21.500812+00:00 · rows: 425 · figures in `figures/
 - SB3 W=4: SB3 SubprocVecEnv runs exactly one process per env, so only W=1 (DummyVecEnv) and W=8 (SubprocVecEnv) exist; W=4 unsupported
 - SB3 W=4: SB3 SubprocVecEnv runs exactly one process per env, so only W=1 (DummyVecEnv) and W=8 (SubprocVecEnv) exist; W=4 unsupported
 - SB3 W=4: SB3 SubprocVecEnv runs exactly one process per env, so only W=1 (DummyVecEnv) and W=8 (SubprocVecEnv) exist; W=4 unsupported
-- zeroRL W=2: zeroRL has no multi-process environment path (vectorize_env -> SyncVectorEnv only); W>=2 unsupported
-- zeroRL W=2: zeroRL has no multi-process environment path (vectorize_env -> SyncVectorEnv only); W>=2 unsupported
-- zeroRL W=2: zeroRL has no multi-process environment path (vectorize_env -> SyncVectorEnv only); W>=2 unsupported
-- zeroRL W=2: zeroRL has no multi-process environment path (vectorize_env -> SyncVectorEnv only); W>=2 unsupported
-- zeroRL W=2: zeroRL has no multi-process environment path (vectorize_env -> SyncVectorEnv only); W>=2 unsupported
-- zeroRL W=4: zeroRL has no multi-process environment path (vectorize_env -> SyncVectorEnv only); W>=2 unsupported
-- zeroRL W=4: zeroRL has no multi-process environment path (vectorize_env -> SyncVectorEnv only); W>=2 unsupported
-- zeroRL W=4: zeroRL has no multi-process environment path (vectorize_env -> SyncVectorEnv only); W>=2 unsupported
-- zeroRL W=4: zeroRL has no multi-process environment path (vectorize_env -> SyncVectorEnv only); W>=2 unsupported
-- zeroRL W=4: zeroRL has no multi-process environment path (vectorize_env -> SyncVectorEnv only); W>=2 unsupported
-- zeroRL W=8: zeroRL has no multi-process environment path (vectorize_env -> SyncVectorEnv only); W>=2 unsupported
-- zeroRL W=8: zeroRL has no multi-process environment path (vectorize_env -> SyncVectorEnv only); W>=2 unsupported
-- zeroRL W=8: zeroRL has no multi-process environment path (vectorize_env -> SyncVectorEnv only); W>=2 unsupported
-- zeroRL W=8: zeroRL has no multi-process environment path (vectorize_env -> SyncVectorEnv only); W>=2 unsupported
-- zeroRL W=8: zeroRL has no multi-process environment path (vectorize_env -> SyncVectorEnv only); W>=2 unsupported
-- SB3 W=2: SB3 SubprocVecEnv runs exactly one process per env, so only W=1 (DummyVecEnv) and W=8 (SubprocVecEnv) exist; W=2 unsupported
-- SB3 W=2: SB3 SubprocVecEnv runs exactly one process per env, so only W=1 (DummyVecEnv) and W=8 (SubprocVecEnv) exist; W=2 unsupported
-- SB3 W=2: SB3 SubprocVecEnv runs exactly one process per env, so only W=1 (DummyVecEnv) and W=8 (SubprocVecEnv) exist; W=2 unsupported
-- SB3 W=2: SB3 SubprocVecEnv runs exactly one process per env, so only W=1 (DummyVecEnv) and W=8 (SubprocVecEnv) exist; W=2 unsupported
-- SB3 W=2: SB3 SubprocVecEnv runs exactly one process per env, so only W=1 (DummyVecEnv) and W=8 (SubprocVecEnv) exist; W=2 unsupported
-- SB3 W=4: SB3 SubprocVecEnv runs exactly one process per env, so only W=1 (DummyVecEnv) and W=8 (SubprocVecEnv) exist; W=4 unsupported
-- SB3 W=4: SB3 SubprocVecEnv runs exactly one process per env, so only W=1 (DummyVecEnv) and W=8 (SubprocVecEnv) exist; W=4 unsupported
-- SB3 W=4: SB3 SubprocVecEnv runs exactly one process per env, so only W=1 (DummyVecEnv) and W=8 (SubprocVecEnv) exist; W=4 unsupported
-- SB3 W=4: SB3 SubprocVecEnv runs exactly one process per env, so only W=1 (DummyVecEnv) and W=8 (SubprocVecEnv) exist; W=4 unsupported
-- SB3 W=4: SB3 SubprocVecEnv runs exactly one process per env, so only W=1 (DummyVecEnv) and W=8 (SubprocVecEnv) exist; W=4 unsupported
 
-![throughput](figures/expB_humanoidstandupv5_throughput.png)
+![throughput](figures/expB_throughput.png)
 
-![speedup](figures/expB_humanoidstandupv5_speedup.png)
+![speedup](figures/expB_speedup.png)
 
-![efficiency](figures/expB_humanoidstandupv5_efficiency.png)
+![efficiency](figures/expB_efficiency.png)
 
 
-## Experiment C — PPO training protocol (fixed 2048 steps/env per rollout) [humanoidstandupv5]
+## Experiment C — PPO training protocol (fixed 2048 steps/env per rollout)
 
 | framework | N | updates | throughput (trans/s) | mean time (s) | mean return (last 100) | reps |
 | --- | --- | --- | --- | --- | --- | --- |
-| zeroRL | 1 | 128 | 428.1 ± 2.5 | 612.4 | 75,253.6 ± 5,108.2 | 6 |
-| zeroRL | 2 | 64 | 536.7 ± 4.2 | 488.4 | 75,079.7 ± 3,892.0 | 6 |
-| zeroRL | 4 | 32 | 650.7 ± 5.7 | 402.9 | 64,966.9 ± 4,545.7 | 6 |
-| zeroRL | 8 | 16 | 687.6 ± 7.3 | 381.3 | 57,229.6 ± 1,909.4 | 6 |
-| zeroRL | 16 | 8 | 762.7 ± 4.1 | 343.7 | 47,649.0 ± 799.5 | 6 |
-| SB3 | 1 | 128 | 418.7 ± 8.6 | 626.3 | 80,410.9 ± 2,362.9 | 6 |
-| SB3 | 2 | 64 | 526.3 ± 5.7 | 498.2 | 73,775.3 ± 2,866.8 | 6 |
-| SB3 | 4 | 32 | 627.7 ± 5.9 | 417.6 | 70,151.9 ± 1,711.2 | 6 |
-| SB3 | 8 | 16 | 655.1 ± 6.0 | 400.2 | 62,676.0 ± 2,365.7 | 6 |
-| SB3 | 16 | 8 | 721.4 ± 3.4 | 363.4 | 50,308.9 ± 2,015.7 | 6 |
-| TorchRL | 1 | 128 | 264.9 ± 2.9 | 989.6 | 72,593.4 ± 2,624.9 | 6 |
-| TorchRL | 2 | 64 | 365.5 ± 3.4 | 717.3 | 73,504.3 ± 3,083.8 | 6 |
-| TorchRL | 4 | 32 | 460.4 ± 4.5 | 569.4 | 67,696.1 ± 2,503.8 | 6 |
-| TorchRL | 8 | 16 | 503.9 ± 4.2 | 520.3 | 64,621.7 ± 824.4 | 6 |
-| TorchRL | 16 | 8 | 560.1 ± 4.2 | 468.1 | 48,612.7 ± 1,557.2 | 6 |
+| zeroRL | 1 | 128 | 1,121.7 ± 131.9 | 236.0 | -93.9 ± 16.0 | 3 |
+| zeroRL | 2 | 64 | 1,316.5 ± 27.9 | 199.2 | -89.2 ± 106.6 | 3 |
+| zeroRL | 4 | 32 | 1,712.3 ± 12.7 | 153.1 | -85.6 ± 38.8 | 3 |
+| zeroRL | 8 | 16 | 2,003.3 ± 40.8 | 130.9 | -36.8 ± 20.8 | 3 |
+| zeroRL | 16 | 8 | 2,200.9 ± 21.6 | 119.1 | -43.6 ± 16.3 | 3 |
+| SB3 | 1 | 128 | 1,037.1 ± 13.7 | 252.8 | -71.5 ± 33.5 | 3 |
+| SB3 | 2 | 64 | 1,148.1 ± 6.4 | 228.3 | -105.7 ± 64.5 | 3 |
+| SB3 | 4 | 32 | 1,389.1 ± 23.3 | 188.7 | -63.7 ± 44.0 | 3 |
+| SB3 | 8 | 16 | 1,163.9 ± 248.5 | 231.5 | -77.8 ± 12.0 | 3 |
+| SB3 | 16 | 8 | 1,014.6 ± 88.8 | 259.7 | -77.0 ± 18.0 | 3 |
+| TorchRL | 1 | 128 | 347.0 ± 33.4 | 759.9 | -71.0 ± 29.0 | 3 |
+| TorchRL | 2 | 64 | 477.9 ± 13.0 | 548.8 | -108.1 ± 58.3 | 3 |
+| TorchRL | 4 | 32 | 634.0 ± 4.3 | 413.5 | -92.8 ± 10.4 | 3 |
+| TorchRL | 8 | 16 | 782.3 ± 13.3 | 335.1 | -57.7 ± 39.9 | 3 |
+| TorchRL | 16 | 8 | 884.6 ± 1.1 | 296.4 | -39.4 ± 11.4 | 3 |
 
-![throughput](figures/expC_humanoidstandupv5_throughput.png)
+![throughput](figures/expC_throughput.png)
 
-![returns](figures/expC_humanoidstandupv5_returns.png)
+![returns](figures/expC_returns.png)
+
+
+## Experiment D — PPO training protocol (fixed global rollout of 2048)
+
+| framework | N | updates | throughput (trans/s) | mean time (s) | mean return (last 100) | reps |
+| --- | --- | --- | --- | --- | --- | --- |
+| zeroRL | 1 | 128 | 1,092.9 ± 26.9 | 240.0 | -93.9 ± 16.0 | 3 |
+| zeroRL | 2 | 128 | 1,221.0 ± 15.4 | 214.7 | -74.5 ± 140.2 | 3 |
+| zeroRL | 4 | 128 | 1,585.6 ± 9.8 | 165.3 | -142.7 ± 52.2 | 3 |
+| zeroRL | 8 | 128 | 1,823.5 ± 39.3 | 143.8 | -101.0 ± 98.2 | 3 |
+| zeroRL | 16 | 128 | 1,881.7 ± 42.7 | 139.4 | -37.3 ± 67.3 | 3 |
+| SB3 | 1 | 128 | 832.5 ± 23.6 | 315.0 | -71.5 ± 33.5 | 3 |
+| SB3 | 2 | 128 | 941.6 ± 1.3 | 278.4 | -117.1 ± 104.9 | 3 |
+| SB3 | 4 | 128 | 1,145.3 ± 5.0 | 228.9 | -118.7 ± 21.7 | 3 |
+| SB3 | 8 | 128 | 1,287.2 ± 7.1 | 203.7 | -54.4 ± 36.8 | 3 |
+| SB3 | 16 | 128 | 1,365.6 ± 10.2 | 192.0 | -145.7 ± 24.8 | 3 |
+| TorchRL | 1 | 128 | 367.3 ± 0.5 | 713.8 | -71.0 ± 29.0 | 3 |
+| TorchRL | 2 | 128 | 433.1 ± 3.3 | 605.3 | -138.5 ± 64.1 | 3 |
+| TorchRL | 4 | 128 | 572.8 ± 12.2 | 457.8 | -82.0 ± 54.6 | 3 |
+| TorchRL | 8 | 128 | 705.3 ± 19.0 | 371.8 | -118.4 ± 39.7 | 3 |
+| TorchRL | 16 | 128 | 802.6 ± 10.7 | 326.6 | -118.9 ± 71.6 | 3 |
+
+![throughput](figures/expD_throughput.png)
+
+![returns](figures/expD_returns.png)
 
 
 ## Findings (computed from the data)
 
-- Exp A collection, N=1: fastest = **SB3** (619 trans/s); also zeroRL 605, TorchRL 369.
-- Exp A collection, N=2: fastest = **zeroRL** (807 trans/s); also SB3 792, TorchRL 591.
-- Exp A collection, N=4: fastest = **zeroRL** (1,074 trans/s); also SB3 1,059, TorchRL 865.
-- Exp A collection, N=8: fastest = **zeroRL** (1,137 trans/s); also SB3 1,117, TorchRL 995.
-- Exp A collection, N=16: fastest = **zeroRL** (1,329 trans/s); also SB3 1,304, TorchRL 1,221.
-- Exp B collection, W=1 (N=8): fastest = **SB3** (1,168 trans/s); also zeroRL 1,160, TorchRL 1,031.
-- Exp B collection, W=2 (N=8): fastest = **TorchRL** (2,102 trans/s).
-- Exp B collection, W=4 (N=8): fastest = **TorchRL** (3,036 trans/s).
-- Exp B collection, W=8 (N=8): fastest = **TorchRL** (3,984 trans/s); also SB3 2,260.
-- Exp C PPO, N=1: fastest = **zeroRL** (428 trans/s); also SB3 419, TorchRL 265.
-- Exp C PPO, N=2: fastest = **zeroRL** (537 trans/s); also SB3 526, TorchRL 365.
-- Exp C PPO, N=4: fastest = **zeroRL** (651 trans/s); also SB3 628, TorchRL 460.
-- Exp C PPO, N=8: fastest = **zeroRL** (688 trans/s); also SB3 655, TorchRL 504.
-- Exp C PPO, N=16: fastest = **zeroRL** (763 trans/s); also SB3 721, TorchRL 560.
-- zeroRL env-scaling efficiency at N=16: 0.14 ± 0.00 (speedup 2.21 ± 0.01, n=5 paired reps, 16x envs).
-- SB3 env-scaling efficiency at N=16: 0.13 ± 0.00 (speedup 2.14 ± 0.01, n=5 paired reps, 16x envs).
-- TorchRL env-scaling efficiency at N=16: 0.20 ± 0.00 (speedup 3.23 ± 0.02, n=5 paired reps, 16x envs).
+- Exp A collection, N=1: fastest = **SB3** (2,029 trans/s); also zeroRL 2,022, TorchRL 703.
+- Exp A collection, N=2: fastest = **SB3** (2,499 trans/s); also zeroRL 2,499, TorchRL 943.
+- Exp A collection, N=4: fastest = **SB3** (4,073 trans/s); also zeroRL 4,025, TorchRL 1,664.
+- Exp A collection, N=8: fastest = **zeroRL** (6,015 trans/s); also SB3 5,969, TorchRL 2,930.
+- Exp A collection, N=16: fastest = **SB3** (7,949 trans/s); also zeroRL 7,928, TorchRL 4,719.
+- Exp B collection, W=1 (N=8): fastest = **zeroRL** (5,639 trans/s); also SB3 5,461, TorchRL 2,619.
+- Exp B collection, W=2 (N=8): fastest = **TorchRL** (3,854 trans/s).
+- Exp B collection, W=4 (N=8): fastest = **TorchRL** (3,106 trans/s).
+- Exp B collection, W=8 (N=8): fastest = **SB3** (2,887 trans/s); also TorchRL 2,119.
+- Exp C PPO, N=1: fastest = **zeroRL** (1,122 trans/s); also SB3 1,037, TorchRL 347.
+- Exp C PPO, N=2: fastest = **zeroRL** (1,316 trans/s); also SB3 1,148, TorchRL 478.
+- Exp C PPO, N=4: fastest = **zeroRL** (1,712 trans/s); also SB3 1,389, TorchRL 634.
+- Exp C PPO, N=8: fastest = **zeroRL** (2,003 trans/s); also SB3 1,164, TorchRL 782.
+- Exp C PPO, N=16: fastest = **zeroRL** (2,201 trans/s); also SB3 1,015, TorchRL 885.
+- Exp D PPO, N=1: fastest = **zeroRL** (1,093 trans/s); also SB3 833, TorchRL 367.
+- Exp D PPO, N=2: fastest = **zeroRL** (1,221 trans/s); also SB3 942, TorchRL 433.
+- Exp D PPO, N=4: fastest = **zeroRL** (1,586 trans/s); also SB3 1,145, TorchRL 573.
+- Exp D PPO, N=8: fastest = **zeroRL** (1,824 trans/s); also SB3 1,287, TorchRL 705.
+- Exp D PPO, N=16: fastest = **zeroRL** (1,882 trans/s); also SB3 1,366, TorchRL 803.
+- zeroRL env-scaling efficiency at N=16: 0.25 ± 0.00 (speedup 4.05 ± 0.05, n=5 paired reps, 16x envs).
+- SB3 env-scaling efficiency at N=16: 0.25 ± 0.01 (speedup 3.97 ± 0.16, n=5 paired reps, 16x envs).
+- TorchRL env-scaling efficiency at N=16: 0.42 ± 0.02 (speedup 6.76 ± 0.31, n=5 paired reps, 16x envs).
 - zeroRL worker parallel efficiency at W=1: 1.00 (speedup 1.00, n=5 paired reps, 1x workers).
-- SB3 worker parallel efficiency at W=8: 0.25 ± 0.01 (speedup 1.97 ± 0.04, n=5 paired reps, 8x workers).
-- TorchRL worker parallel efficiency at W=8: 0.48 ± 0.00 (speedup 3.87 ± 0.03, n=5 paired reps, 8x workers).
+- SB3 worker parallel efficiency at W=8: 0.07 ± 0.00 (speedup 0.53 ± 0.02, n=5 paired reps, 8x workers).
+- TorchRL worker parallel efficiency at W=8: 0.10 ± 0.01 (speedup 0.81 ± 0.05, n=5 paired reps, 8x workers).
+- zeroRL N=1: training throughput C=1,122 vs D=1,093 trans/s (C faster).
+- SB3 N=1: training throughput C=1,037 vs D=833 trans/s (C faster).
+- TorchRL N=1: training throughput C=347 vs D=367 trans/s (D faster).
 
 ## Data integrity
 
 | experiment | ok | failed | unsupported |
 | --- | --- | --- | --- |
-| A | 215 | 0 | 0 |
-| B | 70 | 0 | 50 |
-| C | 90 | 0 | 0 |
+| A | 150 | 0 | 0 |
+| B | 35 | 0 | 25 |
+| C | 45 | 0 | 0 |
+| D | 45 | 0 | 0 |
 
 All ok rows recorded an exact transition budget.
 
-Total rows: 425.
+Total rows: 300.
 
 ## Appendix — protocol C/D configuration (from a result row)
 
 | key | value |
 | --- | --- |
-| device | cpu |
-| env_id | HumanoidStandup-v5 |
+| env_id | LunarLander-v3 |
 | rollout_steps_per_env | 2048 |
 | rollout_global | 2048 |
 | updates | 128 |

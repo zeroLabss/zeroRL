@@ -350,7 +350,7 @@ def run_immediate(
     env = vectorize_env(Hopper2D, num_envs=cfg.num_envs)
     obs_dim, act_dim, obs_n, act_n, is_discrete = get_obs_act(env)
     agent = ActorCriticAgent(obs_n, act_n, is_discrete, hidden_layer).to(cfg.device)
-    normalizer = NormMeanStd((int(obs_n),), device=cfg.device)
+    normalizer = NormMeanStd(obs_dim, device=cfg.device)
 
     if resume_path is not None:
         ckpt = torch.load(resume_path, map_location=cfg.device, weights_only=False)

@@ -2,6 +2,7 @@
 
 import pytest
 import torch
+from torch import nn
 from zerorl.helpers.factory import (
     get_env, get_actor_critic_buffer, ActorCriticAgent,
     get_policy_buffer, get_replay_buffer, PolicyAgent,
@@ -197,3 +198,62 @@ class TestBufferDeviceProperty:
         cfg.device = device
         buf = Buffer(capacity=cfg.rollout_steps, num_envs=cfg.num_envs, schema={"state": (4,)}, device=cfg.device)
         assert buf.device.type == device.type
+
+
+class TestEncoderIntegration:
+    """Factory agents run ObservationEncoder in front of the trunk
+    (commits 699d28d/17286bf/2983ae5); pin the contracts that keep the
+    cross-framework reference weights valid."""
+
+    def test_vector_agent_encoder_wiring_and_param_count(self) -> None:
+        from zerorl.helpers.factory import ActorCriticAgent
+
+        agent = ActorCriticAgent(8, 4, is_discrete=True, hidden_dim=64)
+        assert agent.encoder.output_dim == agent.encoder_dim == 8
+        assert sum(p.numel() for p in agent.encoder.parameters()) == 0
+        # encoder is invoked exactly once per forward
+        calls = [0]
+        agent.encoder.register_forward_hook(
+            lambda *_: calls.__setitem__(0, calls[0] + 1))
+        state = torch.randn(5, 8)
+        with torch.no_grad():
+            logits, value = agent(state)
+        assert calls[0] == 1
+        assert logits.shape == (5, 4) and value.shape == (5, 1)
+        # forward == manual chain over the same modules
+        with torch.no_grad():
+            x = agent.extract_layer(agent.encoder(state))
+            m_logits, m_value = agent.actor(x), agent.critic(x)
+        assert torch.equal(logits, m_logits) and torch.equal(value, m_value)
+        # vector agents add NO parameters -> the 5061 shared-trunk contract
+        # (4736 trunk + 260 actor + 65 critic) that benchmarks rely on holds
+        assert sum(p.numel() for p in agent.parameters()) == 5061
+
+    def test_image_agent_uses_naturecnn_and_ortho_init(self) -> None:
+        from zerorl.helpers.factory import ActorCriticAgent
+
+        agent = ActorCriticAgent((1, 84, 84), 4, is_discrete=True,
+                                 hidden_dim=64)
+        convs = [m for m in agent.encoder.features
+                 if isinstance(m, nn.Conv2d)]
+        assert len(convs) == 3
+        for conv in convs:
+            assert torch.isfinite(conv.weight).all()
+            assert conv.weight.abs().sum() > 0          # orthogonally inited
+            assert conv.bias is not None and float(conv.bias.abs().sum()) == 0
+        # encoder output feeds the trunk
+        assert agent.encoder.output_dim == agent.extract_layer[0].in_features
+        with torch.no_grad():
+            logits, value = agent(torch.rand(2, 1, 84, 84))
+        assert logits.shape == (2, 4) and value.shape == (2, 1)
+
+    def test_policy_agent_encoder_smoke(self) -> None:
+        from zerorl.helpers.factory import PolicyAgent
+
+        agent = PolicyAgent(8, 4, is_discrete=True, hidden_dim=64)
+        assert agent.encoder.output_dim == 8
+        with torch.no_grad():
+            out = agent(torch.randn(3, 8))
+        # PolicyAgent.forward returns logits only
+        assert torch.is_tensor(out) and out.shape == (3, 4)
+

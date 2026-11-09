@@ -1,6 +1,6 @@
 """Utility functions for RL training.
 
-Provides vectorize_env() for environment wrapping, env_step() forfunc
+Provides vectorize_env() for environment wrapping, env_step() for
 agent-env interaction, and helpers for state processing, seeding,
 and action conversion.
 """
@@ -15,6 +15,7 @@ import numpy as np
 import imageio
 from typing import Any, Callable
 from gymnasium import spaces
+from gymnasium.wrappers import AtariPreprocessing, FrameStackObservation
 from gymnasium.vector import AutoresetMode, SyncVectorEnv
 from torch import Tensor
 from torch.nn import Parameter
@@ -24,30 +25,95 @@ from zerorl.processing import NormMeanStd
 from zerorl.config import TrainConfig
 
 
-def vectorize_env(env_spec: str | Callable | BaseEnv, *,  num_envs: int = 1, render_mode: str | None = None) -> SyncVectorEnv:
+ATARI_PREPROCESS: dict[str, Any] = dict(
+    noop_max = 30,
+    frame_skip = 4,
+    screen_size = 84,
+    terminal_on_life_loss = False,
+    grayscale_obs = True,
+    grayscale_newaxis = False,
+    scale_obs = False)
+
+def vectorize_env(env_spec: str | Callable | BaseEnv,
+                  *,
+                  num_envs: int = 1,
+                  atari_preprocess: dict | None = None,
+                  frame_stack: int | None = None,
+                  extra_wrappers: list[tuple[type, dict]] | None = None,
+                  env_kwargs: dict | None = None,
+                  render_mode: str | None = None,
+                  autoreset_mode: AutoresetMode = AutoresetMode.SAME_STEP
+                  ) -> SyncVectorEnv:
     """Wrap an env spec into a SyncVectorEnv with SAME_STEP autoreset.
 
     Args:
         env_spec: Gymnasium env ID string, BaseEnv class/instance, or callable.
         num_envs: Number of parallel environments.
         render_mode: Render mode for the environment.
+        atari_preprocess: AtariPreprocessing kwargs for ALE/ envs.
+        frame_stack: FrameStackObservation stack size. None (default) =
+            AUTO: stack 4 frames only for ALE/ Atari envs (their standard
+            protocol) and leave every other env's observations untouched;
+            pass an int to opt in for non-Atari envs explicitly.
 
     Returns:
         SyncVectorEnv wrapping num_envs independent copies.
     """
+    is_atari = False
+    atari_kwargs = dict(ATARI_PREPROCESS)
+    atari_kwargs.update(atari_preprocess or {})
+    extra_wrappers = list(extra_wrappers or [])
+    env_kwargs = dict(env_kwargs or {})
+
+    def _ensure_ale_registered():
+        try:
+            import ale_py
+            gym.register_envs(ale_py)
+        except ImportError:
+            pass
+
     def make_env_fn() -> Callable:
         def _init():
             if isinstance(env_spec, str):
-                env = gym.make(env_spec, render_mode = render_mode)
+                if env_spec.startswith("ALE/"):
+                    _ensure_ale_registered()
+                    nonlocal is_atari
+                    env_kwargs.setdefault("frameskip", 1)
+                    is_atari = True
+                env = gym.make(env_spec, render_mode = render_mode, **env_kwargs)
             elif isinstance(env_spec, type):
                 env = env_spec()
             elif callable(env_spec):
                 env = env_spec()
             else:
                 env = copy.deepcopy(env_spec)
+
+            if is_atari:
+                env = AtariPreprocessing(env, **atari_kwargs)
+            # stacking: explicit int = opt-in; None = auto (Atari only) so
+            # non-Atari observation shapes stay untouched by default
+            stack = frame_stack if frame_stack is not None else (4 if is_atari else None)
+            if stack is not None and stack > 0:
+                env = FrameStackObservation(env, stack_size=stack)
+            for wrapper_cls, wrapper_kwargs in extra_wrappers:
+                env = wrapper_cls(env, **wrapper_kwargs)
             return env
         return _init
-    return gym.vector.SyncVectorEnv([make_env_fn() for _ in range(num_envs)], autoreset_mode=AutoresetMode.SAME_STEP)
+
+    venv = gym.vector.SyncVectorEnv([make_env_fn() for _ in range(num_envs)], autoreset_mode=autoreset_mode)
+    effective_config = {
+        "env_spec": str(env_spec),
+        "num_envs": num_envs,
+        "render_mode": render_mode,
+        "env_kwargs": dict(env_kwargs),
+        "atari_preprocess": dict(atari_kwargs) if is_atari else None,
+        "frame_stack": frame_stack if frame_stack is not None else (4 if is_atari else None),
+        "extra_wrappers": [(w.__name__, dict(k)) for w, k in extra_wrappers],
+        "autoreset_mode": autoreset_mode.name,
+    }
+    venv.effective_config = lambda: dict(effective_config)
+    return venv
+
 
 def env_step(env: Any, agent: BaseAgent, state: Tensor) -> dict[str, Any]:
     """Run one agent-environment step: get_action -> env.step -> return transition dict."""
@@ -294,7 +360,10 @@ def get_obs_act(env: SyncVectorEnv) -> Any:
     Returns:
         5-tuple of (obs_shape, act_shape, obs_n, act_n, is_discrete).
         obs_shape/act_shape are raw shape tuples from the spaces.
-        obs_n is the observation dim (or the Image space for image obs).
+        obs_n matches its name for vector obs: the FLAT observation size as
+        an int (np.prod of the shape — feed straight to Linear/NormMeanStd).
+        For rank-3 image obs obs_n is the (C, H, W) TUPLE instead, because
+        CNNs need the rank-3 shape, not a flat number.
         act_n is the action dim (int for discrete, product-of-shapes for continuous).
         is_discrete is a bool.
     """
@@ -312,8 +381,10 @@ def get_obs_act(env: SyncVectorEnv) -> Any:
     else:
         act_n = int(np.prod(act_dim.shape)) #type: ignore
 
-    obs_n = obs_dim.shape
-
+    if len(obs_dim.shape) > 2:  # type: ignore
+        obs_n = obs_dim.shape    # image obs: (C, H, W) tuple — CNN needs the rank-3 shape
+    else:
+        obs_n = int(np.prod(obs_dim.shape))  # type: ignore  # flat size (matches the name)
     return (obs_dim.shape, act_dim.shape, obs_n, act_n, is_discrete)
 
 def actions_limits(env: SyncVectorEnv, agent: BaseAgent) -> tuple[Any, Any] | None:

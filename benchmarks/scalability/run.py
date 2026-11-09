@@ -92,6 +92,10 @@ def build_parser() -> argparse.ArgumentParser:
                    help="repetitions (default: 5 for A/B, 3 for C/D)")
     p.add_argument("--seed", type=int, default=1000,
                    help="base seed; rep r runs with seed+r (recorded per row)")
+    p.add_argument("--rep-start", type=int, default=0,
+                   help="first repetition index (rows get rep=rep-start..; "
+                        "lets memory-constrained hosts run reps in separate "
+                        "fresh processes without duplicating rep indices)")
     p.add_argument("--warmup", type=int, default=16_000)
     p.add_argument("--measure", type=int, default=100_000)
     p.add_argument("--total", type=int, default=DEFAULT_PPO_TOTAL,
@@ -153,7 +157,7 @@ def main(argv: list[str] | None = None) -> int:
 
     n_rows = n_failed = n_unsupported = 0
     for framework, num_envs, num_workers, mode in specs:
-        for rep in range(reps):
+        for rep in range(args.rep_start, args.rep_start + reps):
             seed = args.seed + rep
             label = (f"{framework:>7} N={num_envs:>2} W={num_workers} "
                      f"rep={rep} seed={seed}")

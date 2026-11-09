@@ -1,6 +1,6 @@
 # Resource-consumption benchmark report
 
-Generated: 2026-11-03T19:43:24.430693+00:00 · results: /home/darrius/project/zerorl/benchmarks/resources/results
+Generated: 2026-11-08T23:35:45.924829+00:00 · results: /home/darrius/project/zerorl/benchmarks/resources/results
 
 ## Resource consumption (experiment R)
 

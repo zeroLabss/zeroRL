@@ -171,11 +171,16 @@ class BaseTrain:
             final_value = torch.zeros(self.num_envs, device = self.device)
             if is_trunc.any():
                 last_obs = get_last_obs(info, self.num_envs, self.obs_shape, self.device)
-                if last_obs  is  not None:
+                if last_obs is not None:
+                    trunc_idx = torch.where(is_trunc)[0]
+                    trunc_obs = last_obs[trunc_idx]
                     with torch.inference_mode():
-                        last_obs_processed = processing_state(last_obs, self.normalizer, update=False, device = self.device)
-                        last_value = self.agent.get_action(last_obs_processed)["value"]
-                    final_value = torch.where(is_trunc, last_value, final_value)
+                        trunc_obs_processed = processing_state(trunc_obs,
+                                                               self.normalizer,
+                                                               update=False,
+                                                               device = self.device)
+                        last_value = self.agent.get_action(trunc_obs_processed)["value"]
+                        final_value[trunc_idx] = last_value
             if i == self.config.rollout_steps - 1:
                 with torch.inference_mode():
                     state_processed = processing_state(next_state, self.normalizer, update=False, device=self.device)

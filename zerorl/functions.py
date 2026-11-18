@@ -250,15 +250,29 @@ def to_env_action(action: Tensor, env: Any) -> np.ndarray | Tensor:
 def get_last_obs(info: dict, num_envs: int, obs_dim: tuple, device: torch.device) -> Tensor | None:
     """Extract pre-reset observations of envs that ended this step.
 
-    Reads the ``info["final_observation"]`` key (pre-1.0 gymnasium vector
-    envs). NOTE: gymnasium >=1.0 emits ``final_obs`` instead, so on modern
-    gymnasium this returns None and the truncation bootstrap in
-    BaseTrain.rollout_phase stays inactive. Returns None when no env ended
-    this step; slots for envs that did NOT end are zero-filled.
+    Reads the per-step "final observation" emitted by gymnasium's vector
+    env under SAME_STEP autoreset. Supports both modern gymnasium (>=1.0,
+    keys ``final_obs`` / ``_final_obs``) and legacy gymnasium (<1.0, keys
+    ``final_observation`` / ``_final_observation``).
+
+    Returns None when no env ended this step (the key is absent, or the
+    mask is all-False). Otherwise returns a (num_envs, *obs_dim) float32
+    tensor on `device` where slots for envs that did NOT end this step
+    are zero-filled — the caller is expected to filter via
+    ``torch.where(is_trunc, last_value, final_value)`` so the zero-filled
+    slots are never read by GAE.
     """
-    final_obs = info.get("final_observation", None)
+    final_obs = info.get("final_obs")
+    mask = info.get("_final_obs")
+    if final_obs is None:
+        final_obs = info.get("final_observation", None)
+        mask = info.get("_final_observation", mask)
+
     if final_obs is None: return None
-    obs_stacked = np.stack([final_obs[i] if final_obs[i] is not None
+    if mask is None: mask = np.array([obs is not None for obs in final_obs], dtype=bool)
+    mask = np.asarray(mask, dtype=bool)
+    if not mask.any(): return None
+    obs_stacked = np.stack([np.asarray(final_obs[i], dtype=np.float32) if mask[i]
         else np.zeros(obs_dim, dtype=np.float32) for i in range(num_envs)])
     return parse_to_tensor(obs_stacked, device)
 

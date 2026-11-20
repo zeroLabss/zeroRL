@@ -1123,8 +1123,11 @@ class TestSharedTrunkSinglePass:
         return PPOProtocolConfig(total=_PPO_SMOKE_TOTAL)   # N=1: 1 update
 
     def test_zerorl_ppo_e2e_trunk_count(self, monkeypatch) -> None:
-        """2048 env-step get_action + 1 rollout bootstrap + 320 minibatch
-        forwards (10 epochs x 32) = 2369 trunk executions."""
+        """Trunk executions: 2048 env-step get_action + 1 end-of-rollout
+        bootstrap + 2 per-truncation bootstrap get_action calls (the modern
+        final_obs path is active; HumanoidStandup-v5 episodes last 1000
+        steps, so 2048 steps contain exactly 2 truncations)
+        + 320 minibatch forwards (10 epochs x 32) = 2371."""
         import zerorl.helpers.factory as zf
 
         from benchmarks.scalability import ppo_protocols as pp
@@ -1141,8 +1144,8 @@ class TestSharedTrunkSinglePass:
         monkeypatch.setattr(zf, "ActorCriticAgent", CountingAgent)
         art = pp.run_zerorl_ppo(self._c_cfg(), "C", 1, 777)
         assert art["transitions"]["exact"]
-        assert counter[0] == 2048 + 1 + 320, (
-            f"zeroRL trunk executions: {counter[0]} (expected 2369)")
+        assert counter[0] == 2048 + 1 + 2 + 320, (
+            f"zeroRL trunk executions: {counter[0]} (expected 2371)")
 
     def test_sb3_ppo_e2e_trunk_count(self, monkeypatch) -> None:
         """Trunk executions decompose exactly into: 2048 collect forwards

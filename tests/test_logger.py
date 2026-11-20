@@ -219,37 +219,35 @@ class TestPhaseProfiler:
 # ---------------------------------------------------------------------------
 
 
-def test_wandb_init_failure_falls_back_without_raising(monkeypatch) -> None:
-    """wandb.init 401 -> warning + continue WITHOUT wandb; closure usable."""
+def test_wandb_init_failure_propagates(monkeypatch) -> None:
+    """Current contract: wandb.init errors (e.g. CommError 401) PROPAGATE.
+
+    The training script is expected to fix credentials/network instead of
+    silently running without metrics — keep this strict unless the fallback
+    (warn + use_wandb=False) is deliberately reintroduced in logger.py.
+    """
     import zerorl.logger as lg
 
     def _boom(**_kwargs):
         raise RuntimeError('returned error 401: {"data":null')
 
     monkeypatch.setattr(lg.wandb, "init", _boom)
-    with pytest.warns(UserWarning, match="continuing WITHOUT wandb"):
-        log = create_logger(_cfg(), AlgoConfig(), use_wandb=True,
-                            use_tb=False)
-    log({"train/loss": 0.5, "train/mean_episode_reward": -1.0}, step=1)
-    log.close()   # must not raise either
+    with pytest.raises(RuntimeError, match="401"):
+        create_logger(_cfg(), AlgoConfig(), use_wandb=True, use_tb=False)
 
 
-def test_wandb_log_failure_disables_backend(monkeypatch) -> None:
-    """wandb.log blowing up mid-run warns, disables wandb, never raises."""
+def test_wandb_log_failure_propagates(monkeypatch) -> None:
+    """Current contract: wandb.log errors PROPAGATE out of log() (strict)."""
     import zerorl.logger as lg
 
     monkeypatch.setattr(lg.wandb, "init", lambda **_kwargs: None)
-    calls = {"n": 0}
 
     def _bad_log(*_a, **_k):
-        calls["n"] += 1
         raise RuntimeError("comm dropped")
 
     monkeypatch.setattr(lg.wandb, "log", _bad_log)
-    with pytest.warns(UserWarning, match="disabling wandb"):
-        log = create_logger(_cfg(), AlgoConfig(), use_wandb=True,
-                            use_tb=False)
-        log({"train/loss": 1.0}, step=1)      # first call fails -> disable
-    log({"train/loss": 1.0}, step=2)          # second: no raise, no wandb call
-    assert calls["n"] == 1
-    log.close()
+    log = create_logger(_cfg(), AlgoConfig(), use_wandb=True, use_tb=False)
+    with pytest.raises(RuntimeError, match="comm dropped"):
+        log({"train/loss": 1.0}, step=1)
+    monkeypatch.setattr(lg.wandb, "finish", lambda **_k: None)
+    log.close()   # finish guard: close() must swallow finish errors

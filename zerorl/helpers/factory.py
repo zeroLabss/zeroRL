@@ -215,7 +215,7 @@ class PolicyAgent(BaseAgent):
         # CNN Encoder
         self.encoder = ObservationEncoder(self.input_dim)
         self.encoder_dim = self.encoder.output_dim
-        
+
         # Feature Extractor
         self.extract_layer = nn.Sequential(
                 nn.Linear(self.encoder_dim, self.hidden_dim),

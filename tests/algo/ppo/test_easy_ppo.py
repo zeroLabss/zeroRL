@@ -43,7 +43,7 @@ class CustomCartPole(BaseEnv):
 
 
 class CustomAgent(BaseAgent):
-    """Custom agent for testing base_agent override."""
+    """Custom agent for testing the agent override."""
     def __init__(self, obs_dim=4, act_dim=2):
         super().__init__()
         self.actor = nn.Linear(obs_dim, act_dim)
@@ -72,7 +72,7 @@ class TestEasyTrainPpo:
         algo = AlgoConfig()
         agent = CustomAgent(4, 2).to(device)
         train = easy_train_ppo("CartPole-v1", config=tmp_config, algo_config=algo,
-                                base_agent=agent)
+                                agent=agent)
         assert train.agent is agent
         train.env.close()
 

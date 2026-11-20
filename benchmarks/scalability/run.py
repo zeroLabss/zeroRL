@@ -115,6 +115,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if not str(args.env).strip():
+        raise SystemExit("--env must not be empty (got %r)" % args.env)
     frameworks = _parse_frameworks(args.frameworks)
     is_ppo = args.experiment in EXPERIMENTS_CD
     reps = args.reps if args.reps is not None else (3 if is_ppo else 5)

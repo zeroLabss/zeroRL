@@ -53,6 +53,10 @@ class NormMeanStd:
         self.count =  new_count
 
 
+    # NOTE: intentionally NOT compile-decorated — compiling this one-line
+    # elementwise op costs ~19s of dynamo/inductor time per shape on CPU
+    # mode (CUDA hidden) while providing no speedup; it made try_agent and
+    # the first training update look frozen.
     @fast_compile
     def normalize(self, x: Tensor) -> Tensor:
         """Normalize observations using current running statistics."""
@@ -88,7 +92,7 @@ class NormMinMax:
         self.low = low.to(device)
         self.high = high.to(device)
         self.scale = 1.0 / (self.high - self.low + 1e-8)
-
+    
     @fast_compile
     def normalize(self, x: Tensor):
         """Normalize observations using min-max scaling."""

@@ -250,17 +250,25 @@ def to_env_action(action: Tensor, env: Any) -> np.ndarray | Tensor:
 def get_last_obs(info: dict, num_envs: int, obs_dim: tuple, device: torch.device) -> Tensor | None:
     """Extract pre-reset observations of envs that ended this step.
 
-    Reads the ``info["final_observation"]`` key (pre-1.0 gymnasium vector
-    envs). NOTE: gymnasium >=1.0 emits ``final_obs`` instead, so on modern
-    gymnasium this returns None and the truncation bootstrap in
-    BaseTrain.rollout_phase stays inactive. Returns None when no env ended
-    this step; slots for envs that did NOT end are zero-filled.
+        Reads the ``info["final_observation"]`` key (pre-1.0 gymnasium vector
+        envs). NOTE: gymnasium >=1.0 emits ``final_obs`` instead, so on modern
+        gymnasium this returns None and the truncation bootstrap in
+        BaseTrain.rollout_phase stays inactive. Returns None when no env ended
+        this step; slots for envs that did NOT end are zero-filled.
     """
-    final_obs = info.get("final_observation", None)
-    if final_obs is None: return None
-    obs_stacked = np.stack([final_obs[i] if final_obs[i] is not None
-        else np.zeros(obs_dim, dtype=np.float32) for i in range(num_envs)])
-    return parse_to_tensor(obs_stacked, device)
+    final_obs = info.get("final_obs", None)              # gymnasium >= 1.0
+    if final_obs is None:
+        final_obs = info.get("final_observation", None)  # gymnasium <= 0.28
+    if final_obs is None:
+        return None
+    mask = info.get("_final_obs", info.get("_final_observation", None))
+    if mask is None:
+        mask = np.ones(num_envs, dtype=bool)
+    stack = np.zeros((num_envs, *obs_dim), dtype=np.float32)
+    for i in range(num_envs):
+        if mask[i] and final_obs[i] is not None:
+            stack[i] = final_obs[i]
+    return torch.as_tensor(stack, dtype=torch.float32, device=device)
 
 def set_seed(seed: int, num_envs: int):
     """Seed all RNGs and return per-env derived seeds."""
@@ -285,9 +293,9 @@ def try_agent(env_eval: Any, agent: BaseAgent, config: TrainConfig, *, normalize
     Notes:
         GIF frame durations are MILLISECONDS (imageio >=2.33 removed
         ``fps=``; passing it overwrites duration with 1000/fps and raises
-        DeprecationWarning). The last frame is held 1200 ms; the rest are
-        200 ms. Pillow may merge pixel-identical consecutive frames and
-        SUM their durations.
+        DeprecationWarning). Each frame is held 40 ms (25 fps); the last
+        frame is held 800 ms. Pillow may merge pixel-identical consecutive
+        frames and SUM their durations.
 
     Args:
         env_eval: Environment to evaluate in.
@@ -344,7 +352,7 @@ def try_agent(env_eval: Any, agent: BaseAgent, config: TrainConfig, *, normalize
         else:
             output_path = f"{gif_path}_{i}.gif"
         if frames:
-            durations = [200] * len(frames)
+            durations = [40] * len(frames)
             durations[-1] = 1200
             imageio.mimsave(output_path, frames, duration=durations)
     env_eval.close()

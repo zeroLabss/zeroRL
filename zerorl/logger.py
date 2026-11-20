@@ -27,9 +27,8 @@ def create_logger(config: TrainConfig, algo_config: AlgoConfig, *, use_wandb:boo
         if wandb is None:
             raise ImportError("`Wandb` is not installed. Install it with: pip install wandb")
         wandb.init(project=config.project_name,
-                   config={"Train Configs": config.__dict__,
-                           "Hyper Parameters": algo_config.__dict__})
-
+                       config={"Train Configs": config.__dict__,
+                               "Hyper Parameters": algo_config.__dict__})
     if use_tb:
         if SummaryWriter is None:
             raise ImportError("`TensorBoard` is not installed. Install it with: pip install tensorboard")
@@ -39,6 +38,7 @@ def create_logger(config: TrainConfig, algo_config: AlgoConfig, *, use_wandb:boo
 
     def log(metrics:dict, step:int):
         """Convert metrics to floats and forward them to enabled backends."""
+        nonlocal use_wandb
         clean_metrics: dict[str, float] = {}
         for k, v in metrics.items():
             if isinstance(v, Tensor):
@@ -57,7 +57,11 @@ def create_logger(config: TrainConfig, algo_config: AlgoConfig, *, use_wandb:boo
 
     def close():
         """Flush and close wandb/tensorboard backends (attached as log.close)."""
-        if use_wandb: wandb.finish()
+        if use_wandb:
+            try:
+                wandb.finish()
+            except Exception as exc:
+                warnings.warn(f"wandb.finish failed ({exc!r})")
         if use_tb: tb_writer.close()
 
     log.close = close

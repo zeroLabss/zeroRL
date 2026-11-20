@@ -122,7 +122,6 @@ def ppo_loss(agent: BaseAgent, params: dict, buffers: dict,
             'value_loss': value_loss,
             'entropy_loss':entropy_loss}
 
-
 def ppo_func(agent: BaseAgent,
         optimizer: Optimizer,
         buffer: Buffer,
@@ -179,7 +178,6 @@ def ppo_func(agent: BaseAgent,
 
     def update() -> list[dict[str, Tensor]]:
         """Run multiple epochs of minibatch SGD on rollout data.
-
         Shuffles data each epoch, splits into minibatches, and updates weights
         with gradient clipping.
         """

@@ -6,7 +6,6 @@ from zerorl.helpers.train import BaseTrain
 
 #1. configure train and define agent
 config = TrainConfig(project_name="reinforce_example", model_name="agent-reinforce", timestamp=1_000_000, num_envs=2, profile=True, debug=True)
-config.device = torch.device("cpu")
 algo_config = AlgoConfig()
 env = get_env("MountainCar-v0", config.num_envs)
 obs_dim, act_dim, obs_n, act_n, is_discrete = get_obs_act(env)

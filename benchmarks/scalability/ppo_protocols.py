@@ -217,7 +217,7 @@ def run_zerorl_ppo(cfg: PPOProtocolConfig, experiment: str, num_envs: int,
         trainer = easy_train_ppo(
             seeded_env_factory(cfg.env_id, seeds), tconfig,
             _algo_config_from(cfg),
-            base_agent=agent, seed=seed,
+            agent=agent, seed=seed,
         )
         # P6: train() closes env only on success (train.py:279); this closer
         # covers the failure path (double close is guarded by gymnasium).

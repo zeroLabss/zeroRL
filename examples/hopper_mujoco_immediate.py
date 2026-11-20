@@ -8,10 +8,7 @@ Usage:
 from __future__ import annotations
 
 import os
-
-
 import argparse
-
 import imageio
 import mujoco
 import numpy as np

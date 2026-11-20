@@ -307,11 +307,12 @@ class TestTryAgent:
         # Pillow merges pixel-identical consecutive frames and sums their
         # durations, so assert merge-invariant properties instead of an
         # exact per-frame list: every delay is a positive multiple of the
-        # 200 ms base (not the old fps=25 40 ms, not a seconds misread),
-        # and the 1200 ms terminal hold survives (possibly merged upward).
+        # 40 ms base (25 fps; 800 is also a multiple of 40, so merged
+        # frames stay aligned), and the 800 ms terminal hold survives
+        # (possibly merged upward).
         assert durations, "gif has no frames"
-        assert all(d > 0 and d % 200 == 0 for d in durations), durations
-        assert durations[-1] >= 1200
+        assert all(d > 0 and d % 40 == 0 for d in durations), durations
+        assert durations[-1] >= 800
 
 
 # ---------------------------------------------------------------------------

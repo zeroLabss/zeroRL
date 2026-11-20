@@ -52,7 +52,7 @@ class Agent(BaseAgent):
         log_std_clamped = torch.clamp(self.log_std, min=-3.0, max=1.0)
         std = log_std_clamped.exp().expand_as(logits)
         return torch.distributions.Normal(logits, std)
-    
+
     def get_action(self, state: torch.Tensor, action: torch.Tensor | None = None):
         logits, value = self.forward(state)
         dist = self.build_distribution(logits)
@@ -64,7 +64,6 @@ class Agent(BaseAgent):
 
 # 3. Configure and train
 config = TrainConfig(project_name="bipedal_example", model_name="agent_bipedal", timestamp=1_000_000, num_envs=4, profile=True)
-config.device = torch.device("cpu")
 algo_config = AlgoConfig(ent_coef=0.0)
 env = get_env("BipedalWalker-v3", config.num_envs)
 
@@ -73,15 +72,15 @@ agent = Agent(obs_n, act_n).to(config.device)
 buffer = Buffer(capacity=config.rollout_steps,
                 num_envs=config.num_envs,
                 schema={"state": obs_dim, "action": act_dim,
-                      "reward": (), "terminated": (), "entropy": (), "value": (),
+                        "reward": (), "terminated": (), "entropy": (), "value": (), "final_value": (),
                       "return": (), "log_prob": (), "advantage": (), "truncated": ()},
                 device=config.device)
 
-def update_weights(agent, buffer, scheduler, optimizer, last_output, algo_config):
+def update_weights(agent, buffer, scheduler, optimizer, algo_config):
     """Compute GAE advantages then run PPO update."""
     all_data = buffer.get_all()
     # Compute GAE from rollout data
-    gae_compute(all_data["reward"], all_data["value"], all_data["final_value"], all_data["terminated"], all_data["truncated"], buffer, algo_config)
+    gae_compute(all_data["reward"], all_data["value"], all_data["truncated"], all_data["terminated"], all_data["truncated"], buffer, algo_config)
     return ppo_func(agent, optimizer, buffer, algo_config, scheduler)
 
 trainer = BaseTrain(agent, env, buffer, update_weights, config, algo_config, render_mode="human")

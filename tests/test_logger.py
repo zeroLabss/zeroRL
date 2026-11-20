@@ -212,3 +212,42 @@ class TestPhaseProfiler:
         pm = prof.end_phase()
         assert pm.vram_allocated_gb == pytest.approx(1.0)
         assert pm.vram_peak_gb == pytest.approx(2.0)
+
+
+# ---------------------------------------------------------------------------
+# wandb resilience (401/CommError must never kill a training run)
+# ---------------------------------------------------------------------------
+
+
+def test_wandb_init_failure_propagates(monkeypatch) -> None:
+    """Current contract: wandb.init errors (e.g. CommError 401) PROPAGATE.
+
+    The training script is expected to fix credentials/network instead of
+    silently running without metrics — keep this strict unless the fallback
+    (warn + use_wandb=False) is deliberately reintroduced in logger.py.
+    """
+    import zerorl.logger as lg
+
+    def _boom(**_kwargs):
+        raise RuntimeError('returned error 401: {"data":null')
+
+    monkeypatch.setattr(lg.wandb, "init", _boom)
+    with pytest.raises(RuntimeError, match="401"):
+        create_logger(_cfg(), AlgoConfig(), use_wandb=True, use_tb=False)
+
+
+def test_wandb_log_failure_propagates(monkeypatch) -> None:
+    """Current contract: wandb.log errors PROPAGATE out of log() (strict)."""
+    import zerorl.logger as lg
+
+    monkeypatch.setattr(lg.wandb, "init", lambda **_kwargs: None)
+
+    def _bad_log(*_a, **_k):
+        raise RuntimeError("comm dropped")
+
+    monkeypatch.setattr(lg.wandb, "log", _bad_log)
+    log = create_logger(_cfg(), AlgoConfig(), use_wandb=True, use_tb=False)
+    with pytest.raises(RuntimeError, match="comm dropped"):
+        log({"train/loss": 1.0}, step=1)
+    monkeypatch.setattr(lg.wandb, "finish", lambda **_k: None)
+    log.close()   # finish guard: close() must swallow finish errors

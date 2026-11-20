@@ -1,6 +1,6 @@
 # Scalability benchmark report
 
-Generated: 2026-11-09T22:45:51.028926+00:00 · rows: 652 · figures in `figures/`
+Generated: 2026-11-10T13:08:40.680191+00:00 · rows: 652 · figures in `figures/`
 
 ## Environment
 

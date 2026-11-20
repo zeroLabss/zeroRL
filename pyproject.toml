@@ -23,15 +23,14 @@ dependencies = [
     "mujoco>=3.2.0",
     "tqdm>=4.70.0",
     "imageio>=2.31.0",
-    "torchrl>=0.14.1",
-    "tensordict>=0.14.3",
 ]
 
 [project.optional-dependencies]
-box2d = ["swig>=4.4.1", "box2d==2.3.10"]
-pygame = ["pygame==2.6.1", "pygame-ce==2.5.8"]
+box2d = ["swig>=4.4.1", "box2d==2.3.10", "pygame-ce>=2.5.8"]
+render = ["pygame-ce>=2.5.8"]
 logging = ["wandb>=0.28.1", "tensorboard>=2.21.0"]
-benchmarks = ["stable-baselines3>=2.3.0", "matplotlib>=3.8.0", "psutil>=5.9.0"]
+benchmarks = ["stable-baselines3>=2.3.0", "matplotlib>=3.8.0", "torchrl>=0.14.1", "tensordict>=0.14.3", "psutil>=5.9.0"]
+all = ["zerorl[logging,box2d,render,benchmarks]"]
 
 
 [tool.ruff]
@@ -41,7 +40,6 @@ exclude=[".git", ".venv", "build", "dist"]
 [tool.ruff.lint]
 select = ["F"]
 ignore = ["E501", "B008"]
-
 
 [tool.mypy]
 python_version="3.11"
@@ -66,7 +64,6 @@ markers = [
 filterwarnings = [
     "ignore: `torch.jit.script_method` is deprecated:DeprecationWarning",
 ]
-
 
 [build-system]
 requires = ["hatchling"]

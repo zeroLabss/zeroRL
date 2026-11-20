@@ -18,7 +18,7 @@ def easy_train_ppo(env_spec: str | Callable | BaseEnv,
                     config: TrainConfig,
                     algo_config: AlgoConfig,
                     *,
-                    base_agent: BaseAgent | None = None,
+                    agent: BaseAgent | None = None,
                     hidden_layer: int = 64,
                     evals: int = 0,
                     seed: int = 22,
@@ -35,7 +35,7 @@ def easy_train_ppo(env_spec: str | Callable | BaseEnv,
         algo_config: Algorithm hyperparameters (lr, gamma, clip_eps, etc.).
         hidden_layer: Hidden layer size for the default ActorCriticAgent.
         render_mode: Render mode for the environment.
-        base_agent: Custom agent (overrides the default ActorCriticAgent).
+        agent: Custom agent (overrides the default ActorCriticAgent).
         optimizer: Custom optimizer (overrides default Adam).
         schedule_func: Custom LR schedule function (overrides default linear decay).
 
@@ -46,8 +46,8 @@ def easy_train_ppo(env_spec: str | Callable | BaseEnv,
     env = get_env(env_spec, config.num_envs, render_mode)
     obs_dim, act_dim, n_obs, n_act, is_discrete = get_obs_act(env)
 
-    if base_agent is not None:
-        agent = base_agent
+    if agent is not None:
+        agent = agent
     else:
         agent = ActorCriticAgent(n_obs, n_act, is_discrete, hidden_layer) #type: ignore
 

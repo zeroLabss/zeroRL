@@ -834,6 +834,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if not str(args.env).strip():
+        raise SystemExit("--env must not be empty (got %r)" % args.env)
     if args.out:
         out = Path(args.out)
     elif args.env != DEFAULT_ENV:

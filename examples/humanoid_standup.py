@@ -11,7 +11,6 @@ config = TrainConfig(
     normalize=True,
     profile=True,
 )
-config.device = torch.device("cpu")
 algo_config = AlgoConfig(
     lr=2.55673e-5,
     batch_size=32,

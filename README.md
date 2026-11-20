@@ -102,9 +102,9 @@ buffer = Buffer(
         device=config.device)
 
 # Define the update weights function
-def update_weights(agent, buffer, scheduler, optimizer, last_output, algo_config):
+def update_weights(agent, buffer, scheduler, optimizer, algo_config):
     all_data = buffer.get_all()
-    gae_compute(all_data["reward"], all_data["value"], last_output["value"], all_data["terminated"], buffer, algo_config)
+    gae_compute(all_data["reward"], all_data["value"], all_data["final_value"], all_data["terminated"], all_data["truncated"], buffer, algo_config)
     return ppo_func(agent, optimizer, buffer, algo_config, scheduler, device=agent.device)
 
 # Train

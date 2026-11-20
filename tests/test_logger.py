@@ -212,3 +212,44 @@ class TestPhaseProfiler:
         pm = prof.end_phase()
         assert pm.vram_allocated_gb == pytest.approx(1.0)
         assert pm.vram_peak_gb == pytest.approx(2.0)
+
+
+# ---------------------------------------------------------------------------
+# wandb resilience (401/CommError must never kill a training run)
+# ---------------------------------------------------------------------------
+
+
+def test_wandb_init_failure_falls_back_without_raising(monkeypatch) -> None:
+    """wandb.init 401 -> warning + continue WITHOUT wandb; closure usable."""
+    import zerorl.logger as lg
+
+    def _boom(**_kwargs):
+        raise RuntimeError('returned error 401: {"data":null')
+
+    monkeypatch.setattr(lg.wandb, "init", _boom)
+    with pytest.warns(UserWarning, match="continuing WITHOUT wandb"):
+        log = create_logger(_cfg(), AlgoConfig(), use_wandb=True,
+                            use_tb=False)
+    log({"train/loss": 0.5, "train/mean_episode_reward": -1.0}, step=1)
+    log.close()   # must not raise either
+
+
+def test_wandb_log_failure_disables_backend(monkeypatch) -> None:
+    """wandb.log blowing up mid-run warns, disables wandb, never raises."""
+    import zerorl.logger as lg
+
+    monkeypatch.setattr(lg.wandb, "init", lambda **_kwargs: None)
+    calls = {"n": 0}
+
+    def _bad_log(*_a, **_k):
+        calls["n"] += 1
+        raise RuntimeError("comm dropped")
+
+    monkeypatch.setattr(lg.wandb, "log", _bad_log)
+    with pytest.warns(UserWarning, match="disabling wandb"):
+        log = create_logger(_cfg(), AlgoConfig(), use_wandb=True,
+                            use_tb=False)
+        log({"train/loss": 1.0}, step=1)      # first call fails -> disable
+    log({"train/loss": 1.0}, step=2)          # second: no raise, no wandb call
+    assert calls["n"] == 1
+    log.close()

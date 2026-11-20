@@ -73,11 +73,11 @@ agent = Agent(obs_n, act_n).to(config.device)
 buffer = Buffer(capacity=config.rollout_steps,
                 num_envs=config.num_envs,
                 schema={"state": obs_dim, "action": act_dim,
-                      "reward": (), "terminated": (), "entropy": (), "value": (),
+                        "reward": (), "terminated": (), "entropy": (), "value": (), "final_value": (),
                       "return": (), "log_prob": (), "advantage": (), "truncated": ()},
                 device=config.device)
 
-def update_weights(agent, buffer, scheduler, optimizer, last_output, algo_config):
+def update_weights(agent, buffer, scheduler, optimizer, algo_config):
     """Compute GAE advantages then run PPO update."""
     all_data = buffer.get_all()
     # Compute GAE from rollout data

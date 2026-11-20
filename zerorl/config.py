@@ -5,7 +5,7 @@ training settings with computed fields).
 """
 
 import torch
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass
@@ -33,11 +33,9 @@ class TrainConfig:
     normalize: bool = False
     profile: bool = False
     debug: bool = False
-
-    device: torch.device = field(init=False)
+    device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def __post_init__(self) -> None:
-        self.device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if self.num_update <= 0:
             raise ValueError(f"num_update must be greater than 0, got {self.num_update}")
 
@@ -46,10 +44,28 @@ class TrainConfig:
         """Total PPO updates: timestamp // (rollout_steps * num_envs)."""
         return self.timestamp // (self.rollout_steps * self.num_envs)
 
+    @num_update.setter
+    def num_update(self, value: int) -> None:
+        raise AttributeError(
+                "TrainConfig.num_update is read-only: it is computed as "
+                "timestamp // (rollout_steps * num_envs) "
+                f"(currently {self.timestamp} // ({self.rollout_steps} * {self.num_envs}) "
+                f"= {self.timestamp // (self.rollout_steps * self.num_envs)}). "
+                "Set TrainConfig.timestamp, rollout_steps or num_envs instead."
+                )
+
     @property
     def model_path(self):
         """Checkpoint path: "{model_save_path}/{model_name}.pt"."""
         return f"{self.model_save_path}/{self.model_name}.pt"
+
+    @model_path.setter
+    def model_path(self, value: str) -> None:
+        raise AttributeError(
+                "TrainConfig.model_path is read-only: it is derived from "
+                "model_name and model_save_path. "
+                "Set TrainConfig.model_name or TrainConfig.model_save_path instead."
+                )
 
 
 @dataclass

@@ -52,7 +52,7 @@ class Agent(BaseAgent):
         log_std_clamped = torch.clamp(self.log_std, min=-3.0, max=1.0)
         std = log_std_clamped.exp().expand_as(logits)
         return torch.distributions.Normal(logits, std)
-    
+
     def get_action(self, state: torch.Tensor, action: torch.Tensor | None = None):
         logits, value = self.forward(state)
         dist = self.build_distribution(logits)
@@ -64,7 +64,6 @@ class Agent(BaseAgent):
 
 # 3. Configure and train
 config = TrainConfig(project_name="bipedal_example", model_name="agent_bipedal", timestamp=1_000_000, num_envs=4, profile=True)
-config.device = torch.device("cpu")
 algo_config = AlgoConfig(ent_coef=0.0)
 env = get_env("BipedalWalker-v3", config.num_envs)
 

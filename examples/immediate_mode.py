@@ -14,11 +14,11 @@ from zerorl.functions import (processing_state,
                               try_agent,
                               get_obs_act,
                               vectorize_env,
-                              set_seed)
+                              set_seed,
+                              get_last_obs)
 
 
 cfg = TrainConfig(model_name="Lunar-model", project_name="Lunar-example", num_envs=4)
-cfg.device = torch.device("cpu")
 algo_cfg = AlgoConfig()
 seed = set_seed(42, cfg.num_envs)
 env = vectorize_env("LunarLander-v3", num_envs = cfg.num_envs)
@@ -35,27 +35,48 @@ scheduler = LambdaLR(optimizer, lambda step_: 1.0 - (step_ / cfg.num_update))
 log = create_logger(cfg, algo_cfg, use_tb=True)
 reward_tensor = torch.zeros(cfg.num_envs, device=cfg.device)
 state, _ = env.reset(seed = seed)
+obs_ = getattr(env, "single_observation_space", env.observation_space)
 
 for step in tqdm(range(cfg.num_update)):
     episodic_reward = []
     metrics = {}
-    for _ in range(cfg.rollout_steps):
+    for i in range(cfg.rollout_steps):
         state_processed = processing_state(state)
         with torch.inference_mode():
             outputs = agent.get_action(state_processed)
         action  = to_env_action(outputs["action"], env)
-        next_state, reward, terminated, truncated, _ = env.step(action)
+        next_state, reward, terminated, truncated, info = env.step(action)
         outputs_final = {"next_state": next_state, "reward": reward,
-                   "terminated": terminated, "truncated": truncated, **outputs} 
+                         "terminated": terminated, "truncated": truncated,
+                         "info": info, **outputs} 
+        info = outputs_final.pop("info", {})
         outputs_final = parse_dict_to_tensor(outputs_final)
+        is_term = outputs["terminated"] > 0
+        is_trunc = outputs["truncated"] > 0
         next_state = outputs_final.pop("next_state")
         buffer.insert(state = state_processed, **outputs_final)
         reward_tensor += outputs_final["reward"]
-        finished = (outputs_final["terminated"] > 0) | (outputs_final["truncated"] > 0)
+        done = is_term | is_trunc
+        final_value = torch.zeros(cfg.num_envs, device = cfg.device)
+        if is_trunc.any():
+            last_obs = get_last_obs(info, cfg.num_envs, cfg.obs_shape, cfg.device)
+            if last_obs  is  not None:
+                with torch.inference_mode():
+                    last_obs_processed = processing_state(last_obs, cfg.normalizer, update=False, device = cfg.device)
+                    last_value = cfg.agent.get_action(last_obs_processed)["value"]
+                final_value = torch.where(is_trunc, last_value, final_value)
+        if i == cfg.rollout_steps - 1:
+            with torch.inference_mode():
+                state_processed = processing_state(next_state, cfg.normalizer, update=False, device=cfg.device)
+                val = cfg.agent.get_action(state_processed)["value"]
+            final_value = torch.where(done, final_value, val)
+        outputs["final_value"] = final_value
+        cfg.buffer.insert(**outputs)
+        cfg.current_episode_reward += outputs["reward"]
 
-        if finished.any():
-            episodic_reward.extend(reward_tensor[finished].tolist())
-            reward_tensor[finished] = 0.0
+        if done.any():
+            episodic_reward.extend(reward_tensor[done].tolist())
+            reward_tensor[done] = 0.0
         state = next_state
 
     with torch.inference_mode():

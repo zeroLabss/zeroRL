@@ -130,9 +130,9 @@ obs_dim, act_dim, obs_n, act_n, is_discrete = get_obs_act(env)
 agent = ActorCriticAgent(obs_n, act_n, is_discrete).to(cfg.device)
 buffer = Buffer(capacity = cfg.rollout_steps,
                 num_envs = cfg.num_envs,
-                schema = {"state": obs_dim, "action": act_dim,
-                          "reward": (), "terminated": (), "entropy": (), "value": (),
-                          "return": (), "log_prob": (), "advantage": (), "truncated": ()},
+                schema = {"state": obs_dim, "action": act_dim, "reward": (),
+                          "terminated": (), "entropy": (), "value": (), "return": (),
+                          "log_prob": (), "advantage": (), "truncated": (), "final_value": ()},
                 device = cfg.device)
 log = create_logger(cfg, algo_cfg, use_tb=True)
 state, _ = env.reset(seed = seed)

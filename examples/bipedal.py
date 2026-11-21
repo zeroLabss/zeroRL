@@ -63,7 +63,7 @@ class Agent(BaseAgent):
 
 
 # 3. Configure and train
-config = TrainConfig(project_name="bipedal_example", model_name="agent_bipedal", timestamp=1_000_000, num_envs=4, profile=True)
+config = TrainConfig(project_name="bipedal_example", model_name="agent_bipedal", timestamp=1_000_000, num_envs=4, device=torch.device("cpu"))
 algo_config = AlgoConfig(ent_coef=0.0)
 env = get_env("BipedalWalker-v3", config.num_envs)
 
@@ -80,7 +80,7 @@ def update_weights(agent, buffer, scheduler, optimizer, algo_config):
     """Compute GAE advantages then run PPO update."""
     all_data = buffer.get_all()
     # Compute GAE from rollout data
-    gae_compute(all_data["reward"], all_data["value"], all_data["truncated"], all_data["terminated"], all_data["truncated"], buffer, algo_config)
+    gae_compute(all_data["reward"], all_data["value"], all_data["final_value"], all_data["terminated"], all_data["truncated"], buffer, algo_config)
     return ppo_func(agent, optimizer, buffer, algo_config, scheduler)
 
 trainer = BaseTrain(agent, env, buffer, update_weights, config, algo_config, render_mode="human")

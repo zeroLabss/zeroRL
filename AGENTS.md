@@ -22,7 +22,7 @@ via `gym.make`. `mujoco` is a core dep.
 
 ## GPU on this dev box
 
-- This box has a GTX 1050 Ti (sm_61) + torch 2.13+cu130: `torch.cuda.is_available()` returns
+- This box has a old Nvidia GPU (sm_61) + torch 2.13+cu130: `torch.cuda.is_available()` returns
   True but sm_61 kernels are missing → CUDA ops crash. ALWAYS prefix test/benchmark/example
   runs with `CUDA_VISIBLE_DEVICES=""`. GPU CI runs on the separate Jetson Thor runner.
 - `@pytest.mark.gpu` does NOT auto-skip; the `device` fixture falls back to CPU when CUDA

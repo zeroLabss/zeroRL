@@ -42,7 +42,7 @@ for step in tqdm(range(cfg.num_update)):
     episodic_reward = []
     metrics = {}
     for i in range(cfg.rollout_steps):
-        state_processed = processing_state(state)
+        state_processed = processing_state(state, device=cfg.device)
         with torch.inference_mode():
             outputs = agent.get_action(state_processed)
         action  = to_env_action(outputs["action"], env)
@@ -61,12 +61,12 @@ for step in tqdm(range(cfg.num_update)):
             last_obs = get_last_obs(info, cfg.num_envs, obs_shape.shape, cfg.device)
             if last_obs  is  not None:
                 with torch.inference_mode():
-                    last_obs_processed = processing_state(last_obs, update=False, device = cfg.device)
+                    last_obs_processed = processing_state(last_obs, device = cfg.device)
                     last_value = agent.get_action(last_obs_processed)["value"]
                 final_value = torch.where(is_trunc, last_value, final_value)
         if i == cfg.rollout_steps - 1:
             with torch.inference_mode():
-                state_processed = processing_state(next_state, update=False, device=cfg.device)
+                state_processed = processing_state(next_state, device=cfg.device)
                 val = agent.get_action(state_processed)["value"]
             final_value = torch.where(done, final_value, val)
         outputs_final["final_value"] = final_value
